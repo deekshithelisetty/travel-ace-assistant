@@ -1,13 +1,8 @@
 import { CommandSuggestion } from '@/types/crm';
 import { cn } from '@/lib/utils';
 
-interface ShortcutsPopoverProps {
-  type: '/' | '@' | '#';
-  onSelect: (value: string) => void;
-  visible: boolean;
-}
-
-const slashCommands: CommandSuggestion[] = [
+export const slashCommands: CommandSuggestion[] = [
+  { command: '/MerchantPay Terminal', description: 'Payment flow: PNR, invoice, charge card or vCard' },
   { command: '/searchpnr', description: 'Search for a PNR across all GDS' },
   { command: '/rebook', description: 'Initiate rebooking workflow' },
   { command: '/refund', description: 'Process refund request' },
@@ -17,14 +12,14 @@ const slashCommands: CommandSuggestion[] = [
   { command: '/sync', description: 'Sync PNR with GDS' },
 ];
 
-const atMentions = [
+export const atMentions: CommandSuggestion[] = [
   { command: '@john.doe', description: 'John Doe - Senior Agent' },
   { command: '@mary.smith', description: 'Mary Smith - Supervisor' },
   { command: '@support.team', description: 'Support Team' },
   { command: '@admin', description: 'System Administrator' },
 ];
 
-const hashTags = [
+export const hashTags: CommandSuggestion[] = [
   { command: '#urgent', description: 'Mark as urgent priority' },
   { command: '#escalation', description: 'Route to escalation team' },
   { command: '#refunds', description: 'Refunds processing team' },
@@ -32,10 +27,17 @@ const hashTags = [
   { command: '#vip', description: 'VIP customer handling' },
 ];
 
-export function ShortcutsPopover({ type, onSelect, visible }: ShortcutsPopoverProps) {
+interface ShortcutsPopoverProps {
+  type: '/' | '@' | '#';
+  items: CommandSuggestion[];
+  selectedIndex: number;
+  onSelect: (value: string) => void;
+  visible: boolean;
+}
+
+export function ShortcutsPopover({ type, items, selectedIndex, onSelect, visible }: ShortcutsPopoverProps) {
   if (!visible) return null;
 
-  const items = type === '/' ? slashCommands : type === '@' ? atMentions : hashTags;
   const title = type === '/' ? 'Commands' : type === '@' ? 'Assign to' : 'Route to Team';
 
   return (
@@ -44,13 +46,14 @@ export function ShortcutsPopover({ type, onSelect, visible }: ShortcutsPopoverPr
         <span className="text-xs text-muted-foreground uppercase">{title}</span>
       </div>
       <div className="max-h-48 overflow-y-auto">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <button
             key={item.command}
+            type="button"
             onClick={() => onSelect(item.command)}
             className={cn(
-              "w-full text-left px-3 py-2.5 hover:bg-secondary/50 transition-colors",
-              "flex items-center gap-3"
+              "w-full text-left px-3 py-2.5 transition-colors flex items-center gap-3",
+              index === selectedIndex ? "bg-primary/15 border-l-2 border-primary" : "hover:bg-secondary/50"
             )}
           >
             <span className="text-primary font-mono text-sm">{item.command}</span>

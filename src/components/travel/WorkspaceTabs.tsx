@@ -1,4 +1,4 @@
-import { Globe, Plane, Search, X } from 'lucide-react';
+import { Globe, Plane, X } from 'lucide-react';
 import { Tab } from '@/types/crm';
 import { cn } from '@/lib/utils';
 
@@ -31,13 +31,15 @@ export function WorkspaceTabs({ tabs, activeTab, onTabChange, onTabClose }: Work
           )}
           <span className="font-medium text-sm">{tab.label}</span>
           
-          {tab.type !== 'global' && (
+          {tab.id !== 'global' && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onTabClose(tab.id);
               }}
-              className="ml-1 p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label={`Close ${tab.label}`}
+              className="ml-1 p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
             >
               <X className="h-3 w-3" />
             </button>
@@ -48,10 +50,6 @@ export function WorkspaceTabs({ tabs, activeTab, onTabChange, onTabClose }: Work
           )}
         </button>
       ))}
-      
-      <button className="p-2 ml-2 hover:bg-secondary rounded-lg transition-colors">
-        <Search className="h-4 w-4 text-muted-foreground" />
-      </button>
     </div>
   );
 }

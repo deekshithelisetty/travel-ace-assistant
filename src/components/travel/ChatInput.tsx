@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, Mic, ChevronRight } from 'lucide-react';
 import { GDSType, GDSState } from '@/types/crm';
 import { cn } from '@/lib/utils';
-import { ShortcutsPopover } from './ShortcutsPopover';
-import { GDSConnectModal } from './GDSConnectModal';
+import { ShortcutsPopover, slashCommands, atMentions, hashTags } from './ShortcutsPopover';
+import type { CommandSuggestion } from '@/types/crm';
 
 interface ChatInputProps {
   onSend: (message: string, gdsState: GDSState) => void;
@@ -20,8 +20,19 @@ const gdsOptions: { id: GDSType; label: string }[] = [
 export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showShortcuts, setShowShortcuts] = useState<'/' | '@' | '#' | null>(null);
-  const [showGDSModal, setShowGDSModal] = useState<GDSType | null>(null);
+  const [shortcutSelectedIndex, setShortcutSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const allLists: Record<string, CommandSuggestion[]> = { '/': slashCommands, '@': atMentions, '#': hashTags };
+  const words = message.split(/\s+/);
+  const prefix = (words[words.length - 1] || '').trim();
+  const currentList = showShortcuts ? allLists[showShortcuts] ?? [] : [];
+  const filteredItems =
+    showShortcuts && prefix.length > 0
+      ? currentList.filter((c) => c.command.toLowerCase().startsWith(prefix.toLowerCase()))
+      : currentList;
+  const displayItems = filteredItems.length > 0 ? filteredItems : currentList;
+  const safeSelectedIndex = Math.min(shortcutSelectedIndex, Math.max(0, displayItems.length - 1));
 
   const handleGDSClick = (gds: GDSType) => {
     // If already selected, deselect
@@ -29,15 +40,10 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
       onGDSChange(null, null);
       return;
     }
-    // Otherwise show PCC modal
-    setShowGDSModal(gds);
-  };
-
-  const handleGDSConnect = (pcc: string) => {
-    if (showGDSModal) {
-      onGDSChange(showGDSModal, pcc);
-      setShowGDSModal(null);
-    }
+    // Otherwise select GDS and let AI ask for PCC in-chat
+    onGDSChange(gds, null);
+    // Bring focus back to chat so user can type PCC immediately
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,22 +57,55 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
 
     if (lastWord === '/') {
       setShowShortcuts('/');
+      setShortcutSelectedIndex(0);
     } else if (lastWord === '@') {
       setShowShortcuts('@');
+      setShortcutSelectedIndex(0);
     } else if (lastWord === '#') {
       setShowShortcuts('#');
+      setShortcutSelectedIndex(0);
     } else if (lastWord.startsWith('/') || lastWord.startsWith('@') || lastWord.startsWith('#')) {
-      // Keep showing if typing continues
+      setShortcutSelectedIndex(0);
     } else {
       setShowShortcuts(null);
     }
   };
 
+  const handleShortcutKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showShortcuts || displayItems.length === 0) return;
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      const command = displayItems[safeSelectedIndex]?.command;
+      if (command) {
+        const words = message.split(/\s+/);
+        words[words.length - 1] = command + ' ';
+        setMessage(words.join(' '));
+        setShowShortcuts(null);
+        setShortcutSelectedIndex(0);
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setShortcutSelectedIndex((i) => Math.min(i + 1, displayItems.length - 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setShortcutSelectedIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === 'Escape') {
+      setShowShortcuts(null);
+    }
+  };
+
   const handleShortcutSelect = (command: string) => {
-    const words = message.split(' ');
+    const words = message.split(/\s+/);
     words[words.length - 1] = command + ' ';
     setMessage(words.join(' '));
     setShowShortcuts(null);
+    setShortcutSelectedIndex(0);
     inputRef.current?.focus();
   };
 
@@ -95,6 +134,8 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
         {showShortcuts && (
           <ShortcutsPopover
             type={showShortcuts}
+            items={displayItems}
+            selectedIndex={safeSelectedIndex}
             onSelect={handleShortcutSelect}
             visible={true}
           />
@@ -141,7 +182,14 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
             type="text"
             value={message}
             onChange={handleInputChange}
-            placeholder={gdsState.selected ? `Query ${gdsState.selected}...` : "Type / for commands, @ to assign, # for teams..."}
+            onKeyDown={handleShortcutKeyDown}
+            placeholder={
+              gdsState.selected
+                ? gdsState.pcc
+                  ? `Query ${gdsState.selected}...`
+                  : `Enter PCC to connect to ${gdsState.selected}...`
+                : "Use AI to analyze PNR, draft a response, or check availability."
+            }
             className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
           />
 
@@ -174,15 +222,6 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
           </div>
         </div>
       </form>
-
-      {/* GDS Connect Modal */}
-      {showGDSModal && (
-        <GDSConnectModal
-          gds={showGDSModal}
-          onConnect={handleGDSConnect}
-          onCancel={() => setShowGDSModal(null)}
-        />
-      )}
     </>
   );
 }

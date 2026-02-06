@@ -28,6 +28,8 @@ export interface Tab {
   pnr?: string;
   email?: string;
   status?: ActivityStatus;
+  /** When true, tab was accepted from activity stream; closing it does not remove from Spaces */
+  accepted?: boolean;
 }
 
 export interface Message {
@@ -81,7 +83,7 @@ export interface TimelineEvent {
 
 export interface WorkedCase {
   id: string;
-  pnr: string;
+  pnr?: string;
   title: string;
   status: ActivityStatus;
   lastWorked: string;

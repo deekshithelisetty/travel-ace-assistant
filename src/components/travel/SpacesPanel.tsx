@@ -67,7 +67,9 @@ export function SpacesPanel({ workedCases, onCaseClick }: SpacesPanelProps) {
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-primary">PNR: {item.pnr}</span>
+                  <span className="text-xs font-semibold text-primary">
+                    {item.pnr ? `PNR: ${item.pnr}` : 'Conversation'}
+                  </span>
                   <span className={cn("flex items-center gap-1", getStatusStyles(item.status))}>
                     {getStatusIcon(item.status)}
                   </span>
@@ -95,7 +97,9 @@ export function SpacesPanel({ workedCases, onCaseClick }: SpacesPanelProps) {
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-muted-foreground">PNR: {item.pnr}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {item.pnr ? `PNR: ${item.pnr}` : 'Conversation'}
+                  </span>
                   <span className={cn("flex items-center gap-1", getStatusStyles(item.status))}>
                     {getStatusIcon(item.status)}
                     <span className="text-xs capitalize">{item.status}</span>
