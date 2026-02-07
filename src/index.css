@@ -5,7 +5,61 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light theme (default) */
   :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 187 100% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 187 100% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 187 100% 42%;
+
+    --radius: 0.75rem;
+
+    --cyan-glow: 187 100% 50%;
+    --surface-elevated: 0 0% 98%;
+    --surface-overlay: 0 0% 96%;
+    --text-dim: 215 16% 47%;
+    --badge-pnr: 187 100% 42%;
+    --badge-email: 280 80% 60%;
+    --badge-queue: 142 70% 45%;
+    --gds-sabre: 187 100% 42%;
+    --gds-amadeus: 45 100% 50%;
+    --gds-worldspan: 280 80% 60%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 187 100% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 187 100% 42%;
+  }
+
+  /* Dark theme */
+  .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 98%;
 
@@ -34,9 +88,6 @@
     --input: 222 30% 14%;
     --ring: 187 100% 42%;
 
-    --radius: 0.75rem;
-
-    /* Custom Travel CRM tokens */
     --cyan-glow: 187 100% 50%;
     --surface-elevated: 222 40% 12%;
     --surface-overlay: 222 35% 15%;
@@ -69,7 +120,7 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Custom scrollbar for dark theme */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

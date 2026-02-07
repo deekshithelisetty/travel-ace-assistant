@@ -1,6 +1,17 @@
-import { Shield, Inbox, UserCheck, Zap, CheckCircle, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { Shield, Inbox, UserCheck, Zap, CheckCircle, ChevronLeft, ChevronRight, Settings, Sun, Moon, Monitor } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { CaseIntelligence, TimelineEvent } from '@/types/crm';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface CaseIntelligencePanelProps {
   intelligence: CaseIntelligence | null;
@@ -44,6 +55,29 @@ export function CaseIntelligencePanel({
   collapsed = true,
   onToggle,
 }: CaseIntelligencePanelProps) {
+  const { theme, setTheme } = useTheme();
+
+  const themeMenu = (
+    <>
+      <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuRadioGroup value={theme ?? 'light'} onValueChange={(v) => setTheme(v)}>
+        <DropdownMenuRadioItem value="light">
+          <Sun className="mr-2 h-4 w-4" />
+          Light
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="dark">
+          <Moon className="mr-2 h-4 w-4" />
+          Dark
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="system">
+          <Monitor className="mr-2 h-4 w-4" />
+          System
+        </DropdownMenuRadioItem>
+      </DropdownMenuRadioGroup>
+    </>
+  );
+
   /* Collapsed rail: only icons at bottom + expand button */
   if (collapsed) {
     return (
@@ -66,13 +100,20 @@ export function CaseIntelligencePanel({
           >
             {userInitials}
           </button>
-          <button
-            type="button"
-            aria-label="Settings"
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Settings"
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="left" className="w-44">
+              {themeMenu}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
     );
@@ -184,13 +225,20 @@ export function CaseIntelligencePanel({
             <div className="text-sm font-medium text-foreground truncate">{userName}</div>
             <div className="text-xs text-primary uppercase tracking-wide">Performance Peak</div>
           </div>
-          <button
-            type="button"
-            aria-label="Settings"
-            className="shrink-0 p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Settings"
+                className="shrink-0 p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-44">
+              {themeMenu}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </aside>
