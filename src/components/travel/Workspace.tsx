@@ -84,6 +84,25 @@ interface MerchantPayFlow {
   invoice: { invoiceDate: string; invoice: string; dkNumber: string; pnr: string; totalFare: string; amountDue: string; creditDue: string };
 }
 
+/** Generate sample GDS terminal output for display in chat (simulated command response). */
+function getSampleGdsOutput(command: string, gds: GDSType): string {
+  const cmd = command.trim().toUpperCase().slice(0, 20) || 'AVAIL';
+  return `I <<
+${gds === 'SBR' ? 'IGD' : gds === 'AMD' ? 'AN' : 'IR'} 
+${cmd} <<
+20JUL MON SFO/PDT JUL/EST 2
+
+  563  AV/** C9 J9 D9 F5 Y9 B9 M9 H9 Q9  SFOSAL 1415 2050  32N M/G 0 DCA/E
+  429  AV/** C9 J9 D9 I9 Y9 B9 M9 H9     SFOLIM 2215 0330  319 G 0 DCA/E
+ 2205  LA/** C9 J9 D9 I9 Y9 B9 M9 H9     SFOSAL 0610 1245  32N M/G 0 DCA/E
+ 3115  BR/** C9 J9 D9 F9 Y9 B9 M9 H9     SFOGIG 2115 1025+ 77W G 0 DCA/E
+       B9 M9 H9 Q9 V9 A9 E9 K9 L9
+
+SUBJECT TO GOVERNMENT APPROVAL
+
+* - FOR ADDITIONAL CLASSES ENTER 1*C.`;
+}
+
 // Sample PNR data for proactive AI suggestions
 const samplePNRData: PNRData = {
   pnr: 'GHK821',
@@ -118,6 +137,8 @@ export function Workspace({
     isConnected: false,
   });
   const [merchantPayFlow, setMerchantPayFlow] = useState<Record<string, MerchantPayFlow>>({});
+  /** When user types a GDS command before PCC is set, we ask for PCC and store the command to run after they connect. */
+  const [pendingGdsCommand, setPendingGdsCommand] = useState<Record<string, string>>({});
 
   const currentMessages = messagesPerTab[activeTab] || [];
   const currentTab = tabs.find(t => t.id === activeTab);
@@ -373,7 +394,28 @@ export function Workspace({
     if (currentGdsState.selected && !currentGdsState.pcc) {
       const pcc = extractPccCandidate(content);
       if (pcc) {
+        const commandToRun = pendingGdsCommand[activeTab];
         handleGDSChange(currentGdsState.selected, pcc);
+        if (commandToRun) {
+          setPendingGdsCommand(prev => {
+            const next = { ...prev };
+            delete next[activeTab];
+            return next;
+          });
+          setTimeout(() => {
+            const outputMsg: Message = {
+              id: (Date.now() + 2).toString(),
+              role: 'assistant',
+              content: `Command executed in **${currentGdsState.selected}** (PCC: ${pcc}).\n\nOutput for \`${commandToRun}\` below:`,
+              timestamp: '',
+              gdsOutput: getSampleGdsOutput(commandToRun, currentGdsState.selected),
+            };
+            setMessagesPerTab(prev => ({
+              ...prev,
+              [activeTab]: [...(prev[activeTab] || []), outputMsg],
+            }));
+          }, 600);
+        }
         return;
       }
 
@@ -404,19 +446,24 @@ export function Workspace({
     // AI determines GDS from typed command: auto-select that GDS and ask for PCC (no need to click icons).
     const detectedGds = detectGDSFromCommand(content);
     if (detectedGds && !(currentGdsState.selected === detectedGds && currentGdsState.isConnected)) {
+      setPendingGdsCommand(prev => ({ ...prev, [activeTab]: content }));
       handleGDSChange(detectedGds, null);
       return;
     }
 
-    // Simulate AI response and suggest tab name for quick-action conversations
+    // Simulate AI response; when connected to GDS, show command output in a terminal block in chat
     setTimeout(() => {
+      const isGdsConnected = currentGdsState.isConnected && currentGdsState.selected;
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: currentGdsState.isConnected
-          ? `Processing in **${currentGdsState.selected}** (PCC: ${currentGdsState.pcc})...\n\nAnalyzing "${content}" and executing GDS commands...`
+        content: isGdsConnected
+          ? `Command executed in **${currentGdsState.selected}** (PCC: ${currentGdsState.pcc}).\n\nOutput below:`
           : `Processing your request...\n\nI'm analyzing "${content}" and will provide results shortly.`,
         timestamp: '',
+        ...(isGdsConnected && currentGdsState.selected
+          ? { gdsOutput: getSampleGdsOutput(content, currentGdsState.selected) }
+          : {}),
       };
       setMessagesPerTab(prev => ({
         ...prev,

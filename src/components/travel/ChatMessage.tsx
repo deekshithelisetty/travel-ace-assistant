@@ -40,6 +40,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <div className="prose prose-invert prose-sm max-w-none">
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
+        {message.gdsOutput && (
+          <div className="mt-4 rounded-lg overflow-hidden border border-primary/30 bg-[#0f1729] shadow-inner">
+            <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2 text-xs text-white/90">
+              <span className="font-semibold">GDS Output</span>
+            </div>
+            <pre className="p-4 text-xs text-white font-mono whitespace-pre-wrap overflow-x-auto max-h-80 overflow-y-auto leading-relaxed">
+              {message.gdsOutput}
+            </pre>
+          </div>
+        )}
         <div className={cn(
           "text-xs text-muted-foreground mt-2",
           !isAssistant && "text-right"

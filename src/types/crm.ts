@@ -40,6 +40,8 @@ export interface Message {
   sender?: string;
   suggestions?: CommandSuggestion[];
   pnrData?: PNRData;
+  /** GDS terminal-style command output (displayed in chat in a terminal block) */
+  gdsOutput?: string;
 }
 
 export interface CommandSuggestion {
