@@ -50,6 +50,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </pre>
           </div>
         )}
+        {message.ticketNumbers && message.ticketNumbers.length > 0 && (
+          <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+            <div className="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">Ticket numbers</div>
+            <ul className="font-mono text-sm space-y-1">
+              {message.ticketNumbers.map((t, i) => (
+                <li key={i}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className={cn(
           "text-xs text-muted-foreground mt-2",
           !isAssistant && "text-right"

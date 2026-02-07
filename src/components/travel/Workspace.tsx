@@ -5,7 +5,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SearchResultsTable } from './SearchResultsTable';
 import { PNRDetailCard } from './PNRDetailCard';
-import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType } from '@/types/crm';
+import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo } from '@/types/crm';
 
 interface WorkspaceProps {
   tabs: Tab[];
@@ -209,6 +209,47 @@ export function Workspace({
     }
   }, [activeTab, currentTab?.type]);
 
+  // CCV tab: seed conversation with Payomo/CCV summary so agent can review why it went to CCV, travel date, and decide fraud or not
+  useEffect(() => {
+    if (currentTab?.type !== 'ccv' || !currentTab.ccvInfo || messagesPerTab[activeTab]?.length) return;
+    const c = currentTab.ccvInfo as CCVInfo;
+    const lines: string[] = [];
+    lines.push(`**Payomo / CCV summary — PNR ${c.pnr}**`);
+    lines.push('');
+    lines.push(`**Status:** ${c.status} · **High risk:** ${c.highRisk} · **Proceed fulfillment:** ${c.proceedFulfillment}`);
+    lines.push(`**Identity check score:** ${c.identityCheckScore} · **Identity network score:** ${c.identityNetworkScore}`);
+    lines.push('');
+    lines.push('**Validation:**');
+    lines.push(`· Phone: ${c.validations.phone.valid ? 'Valid' : 'Invalid'}${c.validations.phone.match === false ? ' (no match)' : ''}`);
+    lines.push(`· Email: ${c.validations.email.valid ? 'Valid' : 'Invalid'}${c.validations.email.match === false ? ' (no match)' : ''}`);
+    lines.push(`· Address: ${c.validations.address.valid ? 'Valid' : '**Invalid**'}${c.validations.address.match === false ? ' (no match)' : ''}`);
+    lines.push('');
+    lines.push('**Customer:** ' + c.customer.name);
+    lines.push('**Phone:** ' + c.customer.phone + ' · **Email:** ' + c.customer.email);
+    lines.push('**IP:** ' + c.customer.ipAddress);
+    lines.push('**Billing:** ' + c.customer.billingAddress);
+    if (c.journey) {
+      lines.push('');
+      lines.push(`**Journey:** ${c.journey.route} · **Date:** ${c.journey.date}`);
+    }
+    lines.push('');
+    lines.push('Review the above. If **not fraud**, reply with *verified good* or *passed* to proceed to ticketing. If **fraud**, reply with *verified bad* or *decline* to close the case.');
+
+    const initialMessages: Message[] = [
+      {
+        id: 'ccv-1',
+        role: 'assistant',
+        content: lines.join('\n'),
+        timestamp: '',
+        suggestions: [
+          { command: 'verified good', description: 'Not fraud – proceed to ticketing' },
+          { command: 'verified bad', description: 'Fraud – decline and close' },
+        ],
+      },
+    ];
+    setMessagesPerTab(prev => ({ ...prev, [activeTab]: initialMessages }));
+  }, [activeTab, currentTab?.type, currentTab?.ccvInfo]);
+
   const handleGDSChange = (gds: GDSType | null, pcc: string | null) => {
     setGDSState({
       selected: gds,
@@ -313,6 +354,60 @@ export function Workspace({
       ...prev,
       [activeTab]: [...(prev[activeTab] || []), newMessage],
     }));
+
+    // ----- CCV tab: agent decision (verified good → ticketing; verified bad → close) -----
+    if (currentTab?.type === 'ccv') {
+      const lower = content.trim().toLowerCase();
+      const isPass = /verified\s+good|passed|proceed\s+(for\s+)?ticketing|not\s+fraud/.test(lower) || lower === 'passed' || lower === 'good';
+      const isDecline = /verified\s+bad|decline|fraud|close\s+(the\s+)?(case|ticket)/.test(lower) || lower === 'decline' || lower === 'bad';
+
+      if (isPass) {
+        setTimeout(() => {
+          const processing: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: '✅ **Verified good.** Proceeding to ticketing...',
+            timestamp: '',
+          };
+          setMessagesPerTab(prev => ({
+            ...prev,
+            [activeTab]: [...(prev[activeTab] || []), processing],
+          }));
+        }, 400);
+        setTimeout(() => {
+          const ticketMsg: Message = {
+            id: (Date.now() + 2).toString(),
+            role: 'assistant',
+            content: `**Ticket issued successfully.**\n\nTicket numbers:\n· **${currentTab.pnr || 'PNR'}** — \`176-2293847561\`, \`176-2293847562\``,
+            timestamp: '',
+            ticketNumbers: ['176-2293847561', '176-2293847562'],
+          };
+          setMessagesPerTab(prev => ({
+            ...prev,
+            [activeTab]: [...(prev[activeTab] || []), ticketMsg],
+          }));
+          onCaseResolved?.(activeTab);
+        }, 1800);
+        return;
+      }
+      if (isDecline) {
+        setTimeout(() => {
+          const msg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: '✅ **Verified bad.** Case marked as fraud. Fulfillment declined and ticket closed.',
+            timestamp: '',
+            suggestions: [{ command: '/close-case', description: 'Confirm close' }],
+          };
+          setMessagesPerTab(prev => ({
+            ...prev,
+            [activeTab]: [...(prev[activeTab] || []), msg],
+          }));
+          onCaseResolved?.(activeTab);
+        }, 600);
+        return;
+      }
+    }
 
     // Handle slash commands
     if (content.startsWith('/')) {

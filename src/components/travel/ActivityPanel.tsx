@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Radio, SlidersHorizontal, Mail, Plane, Users, MessageCircle, FolderOpen, Check, X, ChevronLeft, ChevronRight, RefreshCw, PenLine, AlertTriangle } from 'lucide-react';
+import { Radio, SlidersHorizontal, Mail, Plane, Users, MessageCircle, FolderOpen, Check, X, ChevronLeft, ChevronRight, RefreshCw, PenLine, AlertTriangle, CreditCard } from 'lucide-react';
 import { ActivityItem, ActivityType, WorkedCase } from '@/types/crm';
 import { cn } from '@/lib/utils';
 import { SpacesPanel } from './SpacesPanel';
@@ -39,6 +39,8 @@ const getBadgeStyles = (type: ActivityType) => {
       return 'bg-badge-email/20 text-badge-email border-badge-email/30';
     case 'queue':
       return 'bg-badge-queue/20 text-badge-queue border-badge-queue/30';
+    case 'ccv_rejected':
+      return 'bg-destructive/20 text-destructive border-destructive/30';
   }
 };
 
@@ -50,6 +52,8 @@ const getIcon = (type: ActivityType) => {
       return <Mail className="h-3.5 w-3.5" />;
     case 'queue':
       return <Users className="h-3.5 w-3.5" />;
+    case 'ccv_rejected':
+      return <CreditCard className="h-3.5 w-3.5" />;
   }
 };
 
@@ -81,6 +85,7 @@ export function ActivityPanel({
       case 'pnr': return 'bg-primary';
       case 'email': return 'bg-badge-email';
       case 'queue': return 'bg-badge-queue';
+      case 'ccv_rejected': return 'bg-destructive';
     }
   };
 
@@ -277,6 +282,12 @@ export function ActivityPanel({
                           <span>{item.subtitle || 'Ticketing Deadline approaching'}</span>
                         </div>
                       )}
+                      {item.type === 'ccv_rejected' && (
+                        <div className="flex items-center gap-2 mt-2 text-xs text-foreground">
+                          <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                          <span>{item.subtitle || 'CCV declined – review required'}</span>
+                        </div>
+                      )}
                     </div>
                     {isActionable(item) && (
                       <div className="flex border-t border-border/60 bg-secondary/20 px-3 py-2 gap-2">
@@ -315,6 +326,16 @@ export function ActivityPanel({
                             className="w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-badge-queue text-white hover:opacity-90"
                           >
                             TAKE ACTION
+                          </button>
+                        )}
+                        {item.type === 'ccv_rejected' && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onItemClick(item); }}
+                            className="w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90"
+                          >
+                            <CreditCard className="h-3.5 w-3.5" />
+                            REVIEW CCV
                           </button>
                         )}
                       </div>

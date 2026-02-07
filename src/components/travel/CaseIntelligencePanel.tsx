@@ -1,6 +1,6 @@
-import { Shield, Inbox, UserCheck, Zap, CheckCircle, ChevronLeft, ChevronRight, Settings, Sun, Moon, Monitor } from 'lucide-react';
+import { Shield, Inbox, UserCheck, Zap, CheckCircle, ChevronLeft, ChevronRight, Settings, Sun, Moon, Monitor, CreditCard, FolderOpen, CalendarCheck } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { CaseIntelligence, TimelineEvent } from '@/types/crm';
+import { CaseIntelligence, TimelineEvent, PNRActivityEvent, PNRActivityEventType } from '@/types/crm';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -15,6 +15,8 @@ import {
 
 interface CaseIntelligencePanelProps {
   intelligence: CaseIntelligence | null;
+  /** When provided (e.g. for CCV or PNR tab), show PNR activity timeline instead of generic intelligence */
+  pnrActivity?: PNRActivityEvent[] | null;
   userInitials: string;
   userName: string;
   /** When true, panel is collapsed and only a narrow rail with icons is shown. Default true (hidden by default). */
@@ -48,8 +50,19 @@ const getTimelineIconBg = (type: TimelineEvent['icon']) => {
   }
 };
 
+const getPNREventIcon = (type: PNRActivityEventType) => {
+  switch (type) {
+    case 'CCV': return <CreditCard className="h-4 w-4" />;
+    case 'CASE': return <FolderOpen className="h-4 w-4" />;
+    case 'TICKET_ORDER':
+    case 'TICKETING_QC':
+    case 'BOOKING': return <CalendarCheck className="h-4 w-4" />;
+  }
+};
+
 export function CaseIntelligencePanel({
   intelligence,
+  pnrActivity = null,
   userInitials,
   userName,
   collapsed = true,
@@ -136,8 +149,42 @@ export function CaseIntelligencePanel({
 
       {/* Scrollable middle content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* PNR Activity timeline (CCV / PNR tab) */}
+        {pnrActivity && pnrActivity.length > 0 && (
+          <div className="p-4 border-b border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">PNR Activity</h3>
+            <div className="relative">
+              <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
+              <div className="space-y-0">
+                {pnrActivity.map((event) => (
+                  <div key={event.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    <div className="relative z-10 w-8 h-8 rounded-lg bg-secondary border border-border flex items-center justify-center flex-shrink-0 text-muted-foreground">
+                      {getPNREventIcon(event.type)}
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="text-sm font-medium text-foreground">{event.title}</div>
+                      <div className="text-xs text-muted-foreground truncate">{event.subtitle}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] text-muted-foreground">{event.timestamp}</span>
+                        <span className={cn(
+                          "inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border",
+                          event.status === 'SUCCESS' && "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+                          event.status === 'FAILURE' && "bg-destructive/15 text-destructive border-destructive/30",
+                          event.status === 'PENDING' && "bg-muted text-muted-foreground border-border"
+                        )}>
+                          {event.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Complexity Score */}
-        {intelligence && (
+        {intelligence && !pnrActivity?.length && (
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -154,7 +201,7 @@ export function CaseIntelligencePanel({
         )}
 
         {/* Timeline */}
-        {intelligence && intelligence.timeline.length > 0 && (
+        {intelligence && !pnrActivity?.length && intelligence.timeline.length > 0 && (
           <div className="p-4 border-b border-border">
             <div className="space-y-4">
               {intelligence.timeline.map((event) => (
@@ -177,7 +224,7 @@ export function CaseIntelligencePanel({
         )}
 
         {/* SLA Status */}
-        {intelligence && (
+        {intelligence && !pnrActivity?.length && (
           <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground uppercase">SLA Status</span>
@@ -193,7 +240,7 @@ export function CaseIntelligencePanel({
         )}
 
         {/* Efficiency Chart */}
-        {intelligence && (
+        {intelligence && !pnrActivity?.length && (
           <div className="p-4 border-b border-border">
             <div className="text-xs text-muted-foreground uppercase mb-3">Efficiency (Last 24H)</div>
             <div className="flex items-end gap-1.5 h-20">
@@ -208,9 +255,9 @@ export function CaseIntelligencePanel({
           </div>
         )}
 
-        {!intelligence && (
+        {!intelligence && !pnrActivity?.length && (
           <div className="p-4 text-sm text-muted-foreground">
-            Open a case to see intelligence here.
+            Open a case or CCV to see intelligence and activity here.
           </div>
         )}
       </div>

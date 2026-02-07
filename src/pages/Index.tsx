@@ -2,10 +2,59 @@ import { useState } from 'react';
 import { ActivityPanel } from '@/components/travel/ActivityPanel';
 import { Workspace } from '@/components/travel/Workspace';
 import { CaseIntelligencePanel } from '@/components/travel/CaseIntelligencePanel';
-import { ActivityItem, Tab, CaseIntelligence, WorkedCase } from '@/types/crm';
+import { ActivityItem, Tab, CaseIntelligence, WorkedCase, CCVInfo, PNRActivityEvent } from '@/types/crm';
+
+// Sample CCV-rejected PNR for flow demo
+const sampleCCVInfo: CCVInfo = {
+  pnr: 'MXCHSI',
+  status: 'DECLINED',
+  highRisk: true,
+  proceedFulfillment: false,
+  riskScore: 0,
+  identityCheckScore: 313,
+  identityNetworkScore: 0,
+  customer: {
+    name: 'Amanatullah Amanatullah',
+    phone: 'xxxxxxxx92',
+    email: 'xxxxxxxx@ziyarahinternationaltravels.com',
+    ipAddress: '183.82.107.184',
+    billingAddress: '951 Mariners Boulevard Suite 130, San Mateo, CA, US, 94404',
+  },
+  validations: {
+    phone: { valid: true, value: '7133473792', match: false },
+    email: { valid: true, value: 'info@ziyarahinternationaltravels.com', match: false },
+    address: { valid: false, match: false },
+  },
+  journey: {
+    route: 'DEL–BOM–DXB',
+    date: '15 Feb 2026',
+    segments: ['6E 2341', '6E 512'],
+  },
+};
+
+const sampleCCVActivity: PNRActivityEvent[] = [
+  { id: 'a1', type: 'CCV', title: 'MXCHSI - CCV', subtitle: 'Amanatullah Amanatullah - CCV', timestamp: '02/06/2026 4:13 p', status: 'FAILURE' },
+  { id: 'a2', type: 'CASE', title: 'MXCHSI - Case: CV1001511838', subtitle: 'Amanatullah Amanatullah ccv', timestamp: '02/06/2026 4:13 p', status: 'PENDING' },
+  { id: 'a3', type: 'TICKET_ORDER', title: 'MXCHSI - TICKET_ORDER', subtitle: 'Amanatullah Amanatullah - MOT', timestamp: '02/06/2026 4:13 p', status: 'PENDING' },
+  { id: 'a4', type: 'TICKETING_QC', title: 'MXCHSI - TICKETING_QC', subtitle: 'Auto User - QC', timestamp: '02/06/2026 4:12 p', status: 'PENDING' },
+  { id: 'a5', type: 'BOOKING', title: 'MXCHSI - BOOKING', subtitle: 'Amanatullah Amanatullah - MANUAL_BOOKING', timestamp: '02/06/2026 4:12 p', status: 'SUCCESS' },
+];
 
 // Sample activity data
 const sampleActivities: ActivityItem[] = [
+  {
+    id: 'ccv1',
+    type: 'ccv_rejected',
+    title: 'CCV Rejected – Review required',
+    subtitle: 'Address validation failed, high risk',
+    timestamp: 'JUST NOW',
+    badge: 'PNR:MXCHSI',
+    isNew: true,
+    status: 'new',
+    caseId: 'CV1001511838',
+    ccvInfo: sampleCCVInfo,
+    pnrActivity: sampleCCVActivity,
+  },
   {
     id: '1',
     type: 'pnr',
@@ -96,15 +145,35 @@ const TravelCRM = () => {
   const [pendingQuickAction, setPendingQuickAction] = useState<{ tabId: string; message: string } | null>(null);
 
   const openCaseForItem = (item: ActivityItem) => {
+    const pnr = item.badge.replace('PNR:', '').trim();
     const existingTab = tabs.find(
-      tab => (tab.type === 'pnr' && tab.pnr === item.badge.replace('PNR:', '').trim()) ||
-             (tab.type === 'email' && item.type === 'email' && tab.label.includes(item.subtitle || ''))
+      tab =>
+        (tab.type === 'ccv' && tab.pnr === pnr) ||
+        (tab.type === 'pnr' && tab.pnr === pnr) ||
+        (tab.type === 'email' && item.type === 'email' && tab.label.includes(item.subtitle || ''))
     );
 
     if (existingTab) {
       setActiveTab(existingTab.id);
+    } else if (item.type === 'ccv_rejected' && item.ccvInfo) {
+      const newTab: Tab = {
+        id: `ccv-${item.id}`,
+        type: 'ccv',
+        label: `CCV #${pnr}`,
+        pnr,
+        status: 'working',
+        accepted: true,
+        ccvInfo: item.ccvInfo,
+        pnrActivity: item.pnrActivity ?? [],
+      };
+      setTabs(prev => [...prev, newTab]);
+      setActiveTab(newTab.id);
+      setActivities(prev => prev.filter(a => a.id !== item.id));
+      setWorkedCases(prev => [
+        ...prev,
+        { id: newTab.id, pnr, title: `CCV ${pnr}`, status: 'working', lastWorked: 'Just now' },
+      ]);
     } else {
-      const pnr = item.badge.replace('PNR:', '').trim();
       const newTab: Tab = {
         id: `${item.type}-${item.id}`,
         type: item.type === 'email' ? 'email' : 'pnr',
@@ -116,19 +185,11 @@ const TravelCRM = () => {
       };
       setTabs(prev => [...prev, newTab]);
       setActiveTab(newTab.id);
-
       setActivities(prev => prev.filter(a => a.id !== item.id));
       setWorkedCases(prev => [
         ...prev,
-        {
-          id: item.id,
-          pnr: pnr,
-          title: item.title,
-          status: 'working',
-          lastWorked: 'Just now',
-        },
+        { id: item.id, pnr, title: item.title, status: 'working', lastWorked: 'Just now' },
       ]);
-
       if (item.type === 'pnr') {
         setCaseIntelligence(sampleIntelligence);
       }
@@ -185,6 +246,9 @@ const TravelCRM = () => {
       setCaseIntelligence(null);
     }
   };
+
+  const activeTabData = tabs.find(t => t.id === activeTab);
+  const pnrActivityForPanel = activeTabData?.pnrActivity ?? null;
 
   const handleChatClick = () => {
     const hasGlobal = tabs.some((t) => t.id === 'global');
@@ -354,6 +418,7 @@ const TravelCRM = () => {
       />
       <CaseIntelligencePanel
         intelligence={caseIntelligence}
+        pnrActivity={pnrActivityForPanel}
         userInitials="HB"
         userName="H. Bennett"
         collapsed={!rightPanelOpen}
