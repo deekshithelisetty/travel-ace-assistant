@@ -122,6 +122,19 @@ export function Workspace({
   const currentMessages = messagesPerTab[activeTab] || [];
   const currentTab = tabs.find(t => t.id === activeTab);
   const sentQuickActionForRef = useRef<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat to bottom when messages or tab change
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const scrollToBottom = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+    requestAnimationFrame(scrollToBottom);
+    const t = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(t);
+  }, [currentMessages.length, currentMessages, activeTab]);
 
   // When a quick-action tab is opened, send the pending message in that tab (once)
   useEffect(() => {
@@ -539,7 +552,7 @@ export function Workspace({
       />
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
+      <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
         {/* Default workspace welcome (global tab, no messages yet) */}
         {activeTab === 'global' && currentMessages.length === 0 && (() => {
           const recentItems = [
