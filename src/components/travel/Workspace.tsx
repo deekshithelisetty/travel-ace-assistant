@@ -5,7 +5,8 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SearchResultsTable } from './SearchResultsTable';
 import { PNRDetailCard } from './PNRDetailCard';
-import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo } from '@/types/crm';
+import { FlightChatCard } from './FlightChatCard';
+import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo, FlightSearchState, FlightOption } from '@/types/crm';
 
 interface WorkspaceProps {
   tabs: Tab[];
@@ -21,6 +22,7 @@ interface WorkspaceProps {
   onClearPendingQuickAction?: () => void;
   onSuggestTabLabel?: (tabId: string, suggestedLabel: string) => void;
   onCaseResolved?: (tabId: string) => void;
+  onShowRightPanel?: (content: 'intelligence' | 'flight_results', data?: any) => void;
 }
 
 /** AI-determined tab name from quick-action or first message */
@@ -114,6 +116,15 @@ const samplePNRData: PNRData = {
   status: 'confirmed',
 };
 
+const sampleFlights: FlightOption[] = [
+  { id: '1', airline: 'Delta Air Lines', flightNumber: 'DL 1539', departureTime: '6:30p', arrivalTime: '8:02p', origin: 'SFO', destination: 'LAX', duration: '1h 32m', price: 129, stops: 0, cabin: 'Economy' },
+  { id: '2', airline: 'Delta Air Lines', flightNumber: 'DL 1598', departureTime: '7:00a', arrivalTime: '8:33a', origin: 'SFO', destination: 'LAX', duration: '1h 33m', price: 129, stops: 0, cabin: 'Economy' },
+  { id: '3', airline: 'Alaska Airlines', flightNumber: 'AS 345', departureTime: '7:00a', arrivalTime: '8:34a', origin: 'SFO', destination: 'LAX', duration: '1h 34m', price: 129, stops: 0, cabin: 'Economy' },
+  { id: '4', airline: 'United Airlines', flightNumber: 'UA 123', departureTime: '8:00a', arrivalTime: '9:30a', origin: 'SFO', destination: 'LAX', duration: '1h 30m', price: 135, stops: 0, cabin: 'Economy' },
+  { id: '5', airline: 'Southwest', flightNumber: 'WN 456', departureTime: '9:00a', arrivalTime: '10:30a', origin: 'SFO', destination: 'LAX', duration: '1h 30m', price: 110, stops: 0, cabin: 'Economy' },
+  { id: '6', airline: 'Delta Air Lines', flightNumber: 'DL 2000', departureTime: '10:00a', arrivalTime: '11:32a', origin: 'SFO', destination: 'LAX', duration: '1h 32m', price: 145, stops: 0, cabin: 'Economy' }
+];
+
 export function Workspace({
   tabs,
   activeTab,
@@ -125,6 +136,7 @@ export function Workspace({
   onClearPendingQuickAction,
   onSuggestTabLabel,
   onCaseResolved,
+  onShowRightPanel,
 }: WorkspaceProps) {
   const [messagesPerTab, setMessagesPerTab] = useState<Record<string, Message[]>>({
     global: [],
@@ -137,6 +149,7 @@ export function Workspace({
     isConnected: false,
   });
   const [merchantPayFlow, setMerchantPayFlow] = useState<Record<string, MerchantPayFlow>>({});
+  const [flightSearchFlow, setFlightSearchFlow] = useState<Record<string, FlightSearchState>>({});
   /** When user types a GDS command before PCC is set, we ask for PCC and store the command to run after they connect. */
   const [pendingGdsCommand, setPendingGdsCommand] = useState<Record<string, string>>({});
 
@@ -415,6 +428,257 @@ export function Workspace({
       return;
     }
 
+    // ----- Flight Search Flow -----
+    const flightState = flightSearchFlow[activeTab];
+    if (flightState) {
+      if (flightState.step === 'origin') {
+        setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, origin: content, step: 'destination' } }));
+        setTimeout(() => {
+             const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Where are they traveling to?', timestamp: '' };
+             setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+      }
+      if (flightState.step === 'destination') {
+        setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, destination: content, step: 'dates' } }));
+        setTimeout(() => {
+             const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'What are the travel dates? (e.g. May 20, 2026)', timestamp: '' };
+             setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+      }
+      if (flightState.step === 'dates') {
+          // Parse rudimentary date
+          setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, departureDate: content, step: 'travelers' } }));
+          setTimeout(() => {
+               const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'How many travelers? (e.g. 2 adults, 1 child)', timestamp: '' };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 500);
+          return;
+      }
+      if (flightState.step === 'travelers') {
+          // Parse travelers
+          const adultsMatch = content.match(/(\d+)\s*adults?/i);
+          const childrenMatch = content.match(/(\d+)\s*children?/i) || content.match(/(\d+)\s*kids?/i);
+          const infantsMatch = content.match(/(\d+)\s*infants?/i) || content.match(/(\d+)\s*babies?/i);
+
+          const adults = adultsMatch ? parseInt(adultsMatch[1]) : (content.match(/(\d+)/) ? parseInt(content.match(/(\d+)/)![1]) : 1);
+          const children = childrenMatch ? parseInt(childrenMatch[1]) : 0;
+          const infants = infantsMatch ? parseInt(infantsMatch[1]) : 0;
+          
+          const travelers = { adults, children, infants };
+
+          // Simulate searching
+          setTimeout(() => {
+                const searchingMsg: Message = { id: (Date.now()).toString(), role: 'assistant', content: 'Searching available flights...', timestamp: '' };
+                setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), searchingMsg] }));
+          }, 200);
+
+          setTimeout(() => {
+               const updatedState = { ...flightState, travelers, results: sampleFlights, step: 'results' as const };
+               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: updatedState }));
+               
+               const resultMsg: Message = {
+                   id: (Date.now()+1).toString(),
+                   role: 'assistant',
+                   content: `I found ${sampleFlights.length} flights for ${flightState.origin} to ${content} (Travelers: ${content}). Top 5 options:`,
+                   timestamp: '',
+                   flightOptions: sampleFlights
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), resultMsg] }));
+               if (onShowRightPanel) onShowRightPanel('flight_results', sampleFlights);
+          }, 1500);
+          return;
+      }
+      
+      if (flightState.step === 'results') {
+           const lower = content.toLowerCase();
+           let selected: FlightOption | undefined;
+           
+           // Helper: try to pick by index 1-based
+           const pickByIndex = (n: number) => {
+               if (n >= 1 && n <= flightState.results.length) return flightState.results[n - 1];
+               return null;
+           };
+
+           // 1. Try finding by index (digits)
+           // Matches: "1", "option 2", "#3"
+           // We ignore large numbers (likely flight numbers)
+           const numberMatch = lower.match(/(?:option|choice|#)?\s*(\d+)/);
+           if (numberMatch) {
+               const idx = parseInt(numberMatch[1]);
+               if (idx >= 1 && idx <= 10) { // Assume max 10 results shown/selectable by index
+                   const match = pickByIndex(idx);
+                   if (match) selected = match;
+               }
+           }
+
+           // 2. Try finding by word (first, one, etc)
+           if (!selected) {
+               const wordMap: Record<string, number> = {
+                   'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'fifth': 5,
+                   'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                   '1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5,
+                   'last': flightState.results.length
+               };
+               for (const [word, val] of Object.entries(wordMap)) {
+                   if (new RegExp(`\\b${word}\\b`).test(lower)) {
+                       const match = pickByIndex(val);
+                       if (match) {
+                           selected = match;
+                           break;
+                       }
+                   }
+               }
+           }
+
+           // 3. Try flight number / airline string match
+           // Matches: "DL 1539", "Select Delta"
+           if (!selected) {
+               const cleanQuery = lower.replace(/select|book|flight|option|choose|the/g, '').trim();
+               if (cleanQuery.length > 2) {
+                   selected = flightState.results.find(f => 
+                       f.flightNumber.toLowerCase().includes(cleanQuery) ||
+                       f.airline.toLowerCase().includes(cleanQuery)
+                   );
+               }
+           }
+           
+           if (selected) {
+               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, selectedFlight: selected, step: 'brand_selection' } }));
+               
+               setTimeout(() => {
+                    const brands = ['Basic Economy', 'Main Cabin', 'Comfort+'];
+                    const msg: Message = { 
+                        id: Date.now().toString(), 
+                        role: 'assistant', 
+                        content: `You selected **${selected.airline} ${selected.flightNumber}**.\n\nPlease select a fare brand:\n\n1. **Basic Economy** ($${selected.price})\n2. **Main Cabin** ($${selected.price + 30})\n3. **Comfort+** ($${selected.price + 80})`, 
+                        timestamp: '',
+                        suggestions: brands.map(b => ({ command: b, description: 'Select fare' }))
+                    };
+                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+               }, 500);
+               return;
+           }
+      }
+
+      if (flightState.step === 'brand_selection') {
+           setFlightSearchFlow(prev => ({ 
+               ...prev, 
+               [activeTab]: { 
+                   ...flightState, 
+                   selectedBrand: content, 
+                   step: 'details',
+                   travelerDetails: [], 
+                   currentTravelerIndex: 1
+               } 
+           }));
+           setTimeout(() => {
+                const msg: Message = { 
+                    id: Date.now().toString(), 
+                    role: 'assistant', 
+                    content: `Brand **${content}** selected.\n\nPlease provide details for **Traveler 1** (Name, Email, Phone).`, 
+                    timestamp: '' 
+                };
+                setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+           }, 500);
+           return;
+      }
+
+      if (flightState.step === 'details') {
+           const currentDetails = flightState.travelerDetails || [];
+           // parse user input "Name, Email, Phone" or just raw string
+           const newDetail = {
+               name: content, 
+               email: 'tbd',
+               phone: 'tbd',
+               type: 'Adult' as const 
+           };
+           
+           const updatedDetails = [...currentDetails, newDetail];
+           
+           const totalTravelers = (flightState.travelers?.adults || 1) + (flightState.travelers?.children || 0) + (flightState.travelers?.infants || 0);
+
+           if (updatedDetails.length < totalTravelers) {
+               const nextIndex = updatedDetails.length + 1;
+               setFlightSearchFlow(prev => ({
+                   ...prev,
+                   [activeTab]: { ...flightState, travelerDetails: updatedDetails, currentTravelerIndex: nextIndex }
+               }));
+               setTimeout(() => {
+                    const msg: Message = { 
+                        id: Date.now().toString(), 
+                        role: 'assistant', 
+                        content: `Saved Traveler ${updatedDetails.length}.\n\nPlease provide details for **Traveler ${nextIndex}**.`, 
+                        timestamp: '' 
+                    };
+                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+               }, 500);
+           } else {
+               setFlightSearchFlow(prev => ({
+                   ...prev,
+                   [activeTab]: { ...flightState, travelerDetails: updatedDetails, step: 'payment' }
+               }));
+               setTimeout(() => {
+                    const totalCost = (flightState.selectedFlight?.price || 0) * totalTravelers;
+                    const msg: Message = { 
+                        id: Date.now().toString(), 
+                        role: 'assistant', 
+                        content: `All traveler info saved.\n\nPlease enter card details to proceed with payment of **$${totalCost}** for ${totalTravelers} travelers.`, 
+                        timestamp: '' 
+                    };
+                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+               }, 500);
+           }
+           return;
+      }
+
+      if (flightState.step === 'payment') {
+           setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'confirmation' } }));
+           setTimeout(() => {
+                const totalTravelers = (flightState.travelers?.adults || 1) + (flightState.travelers?.children || 0) + (flightState.travelers?.infants || 0);
+                const total = (flightState.selectedFlight?.price || 0) * totalTravelers;
+                const travelerNames = flightState.travelerDetails?.map(t => t.name).join(', ') || 'Unknown';
+                const msg: Message = { 
+                    id: Date.now().toString(), 
+                    role: 'assistant', 
+                    content: `**Confirm Booking**\n\nFlight: ${flightState.selectedFlight?.airline} ${flightState.selectedFlight?.flightNumber}\nRoute: ${flightState.selectedFlight?.origin} -> ${flightState.selectedFlight?.destination}\nTravelers (${totalTravelers}): ${travelerNames}\nTotal: **$${total}**\n\nType **"confirm"** to book or "cancel" to abort.`, 
+                    timestamp: '' 
+                };
+                setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+           }, 500);
+           return;
+      }
+
+      if (flightState.step === 'confirmation') {
+           if (content.toLowerCase().includes('confirm')) {
+               const pnr = 'FLT' + Math.floor(Math.random() * 10000);
+               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'booked' } }));
+               setTimeout(() => {
+                    const msg: Message = { 
+                        id: Date.now().toString(), 
+                        role: 'assistant', 
+                        content: `✅ **Booking Confirmed!**\n\nPNR: **${pnr}**\nTicket: 176-${Math.floor(Math.random() * 1000000000)}\n\nThank you for booking with Travel Ace.`, 
+                        timestamp: '',
+                        ticketNumbers: [`176-${Math.floor(Math.random() * 1000000000)}`]
+                    };
+                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+               }, 1000);
+           } else {
+               setFlightSearchFlow(prev => {
+                   const next = { ...prev };
+                   delete next[activeTab]; 
+                   return next;
+               });
+               setTimeout(() => {
+                    const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Booking cancelled.', timestamp: '' };
+                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+               }, 500);
+           }
+           return;
+      }
+    }
+
     // ----- MerchantPay Terminal flow (in-chat payment) -----
     const flow = merchantPayFlow[activeTab];
     if (flow) {
@@ -619,6 +883,16 @@ export function Workspace({
       return;
     }
 
+    if (cmd === '/add-flight') {
+        const initialFlow: FlightSearchState = { step: 'origin', results: [] };
+        setFlightSearchFlow(prev => ({ ...prev, [activeTab]: initialFlow }));
+        setTimeout(() => {
+            const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Starting flight search. What is the **Origin** city or airport code?', timestamp: '' };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+    }
+
     setTimeout(() => {
       let responseContent = '';
       let suggestions: CommandSuggestion[] = [];
@@ -792,6 +1066,20 @@ export function Workspace({
                     onSyncPNR={() => handleSlashCommand('/sync', gdsState)}
                   />
                 </div>
+              )}
+
+              {/* Show Flight Options Card */}
+              {message.flightOptions && (
+                 <div className="pl-14 mt-4">
+                    <FlightChatCard 
+                        options={message.flightOptions}
+                        onViewAll={() => onShowRightPanel && onShowRightPanel('flight_results', message.flightOptions)}
+                        onSelect={(opt) => {
+                             // Handle selection in chat
+                             handleSend(`Select flight ${opt.flightNumber}`, gdsState);
+                        }}
+                    />
+                 </div>
               )}
 
               {/* Command Suggestions */}

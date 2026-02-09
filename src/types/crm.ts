@@ -83,6 +83,50 @@ export interface Tab {
   pnrActivity?: PNRActivityEvent[];
 }
 
+export interface FlightOption {
+  id: string;
+  airline: string;
+  flightNumber: string;
+  departureTime: string;
+  arrivalTime: string;
+  origin: string;
+  destination: string;
+  duration: string;
+  price: number;
+  stops: number;
+  cabin: string;
+  logo?: string; // URL to airline logo or icon name
+}
+
+export interface FlightSearchState {
+  step: 'origin' | 'destination' | 'dates' | 'travelers' | 'results' | 'brand_selection' | 'details' | 'payment' | 'confirmation' | 'booked';
+  origin?: string;
+  destination?: string;
+  departureDate?: string;
+  returnDate?: string;
+  travelers?: {
+    adults: number;
+    children: number;
+    infants: number;
+  };
+  results: FlightOption[];
+  selectedFlight?: FlightOption;
+  selectedBrand?: string;
+  travelerDetails?: {
+    name: string;
+    email: string;
+    phone: string;
+    type: 'Adult' | 'Child' | 'Infant';
+  }[];
+  currentTravelerIndex?: number;
+  paymentDetails?: {
+    cardNumber: string;
+    expiry: string;
+    cvv: string;
+    name: string;
+  };
+}
+
 export interface Message {
   id: string;
   role: 'assistant' | 'user';
@@ -95,6 +139,8 @@ export interface Message {
   gdsOutput?: string;
   /** When present, show issued ticket numbers (e.g. after "verified good" → ticketing) */
   ticketNumbers?: string[];
+  /** Flight options to display in chat */
+  flightOptions?: FlightOption[];
 }
 
 export interface CommandSuggestion {
@@ -134,6 +180,7 @@ export interface TimelineEvent {
   title: string;
   description: string;
   timestamp: string;
+  
 }
 
 export interface WorkedCase {

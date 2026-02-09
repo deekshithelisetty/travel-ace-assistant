@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ActivityPanel } from '@/components/travel/ActivityPanel';
 import { Workspace } from '@/components/travel/Workspace';
 import { CaseIntelligencePanel } from '@/components/travel/CaseIntelligencePanel';
-import { ActivityItem, Tab, CaseIntelligence, WorkedCase, CCVInfo, PNRActivityEvent } from '@/types/crm';
+import { FlightResultsPanel } from '@/components/travel/FlightResultsPanel';
+import { ActivityItem, Tab, CaseIntelligence, WorkedCase, CCVInfo, PNRActivityEvent, FlightOption } from '@/types/crm';
 
 // Sample CCV-rejected PNR for flow demo
 const sampleCCVInfo: CCVInfo = {
@@ -142,6 +143,9 @@ const TravelCRM = () => {
   const [caseIntelligence, setCaseIntelligence] = useState<CaseIntelligence | null>(null);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelMode, setRightPanelMode] = useState<'intelligence' | 'flight_results'>('intelligence');
+  const [flightResults, setFlightResults] = useState<FlightOption[]>([]);
+  const [flightSearchTabId, setFlightSearchTabId] = useState<string | null>(null);
   const [pendingQuickAction, setPendingQuickAction] = useState<{ tabId: string; message: string } | null>(null);
 
   const openCaseForItem = (item: ActivityItem) => {
@@ -390,6 +394,15 @@ const TravelCRM = () => {
     }
   };
 
+  const handleShowRightPanel = (content: 'intelligence' | 'flight_results', data?: any) => {
+    setRightPanelMode(content);
+    if (content === 'flight_results') {
+      setFlightResults(data);
+      setFlightSearchTabId(activeTab);
+    }
+    setRightPanelOpen(true);
+  };
+
   return (
     <div className="h-screen w-screen flex overflow-hidden">
       <ActivityPanel
@@ -415,15 +428,37 @@ const TravelCRM = () => {
         onClearPendingQuickAction={handleClearPendingQuickAction}
         onSuggestTabLabel={handleSuggestTabLabel}
         onCaseResolved={handleCaseResolved}
+        onShowRightPanel={handleShowRightPanel}
       />
-      <CaseIntelligencePanel
-        intelligence={caseIntelligence}
-        pnrActivity={pnrActivityForPanel}
-        userInitials="HB"
-        userName="H. Bennett"
-        collapsed={!rightPanelOpen}
-        onToggle={() => setRightPanelOpen((prev) => !prev)}
-      />
+      {rightPanelMode === 'intelligence' ? (
+        <CaseIntelligencePanel
+          intelligence={caseIntelligence}
+          pnrActivity={pnrActivityForPanel}
+          userInitials="HB"
+          userName="H. Bennett"
+          collapsed={!rightPanelOpen}
+          onToggle={() => setRightPanelOpen((prev) => !prev)}
+        />
+      ) : (
+        <FlightResultsPanel
+          options={flightResults}
+          onSelect={(opt) => {
+            if (flightSearchTabId) {
+              setPendingQuickAction({ tabId: flightSearchTabId, message: `Select flight ${opt.flightNumber}` });
+              setActiveTab(flightSearchTabId);
+            }
+          }}
+          collapsed={!rightPanelOpen}
+          onToggle={() => {
+              // If toggling off, maybe reset to intelligence next time? Or keep state.
+              setRightPanelOpen((prev) => !prev);
+              if (rightPanelOpen) { // Closing
+                  // optionally timeout reset
+                  setTimeout(() => setRightPanelMode('intelligence'), 300);
+              }
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -2,6 +2,9 @@ import { CommandSuggestion } from '@/types/crm';
 import { cn } from '@/lib/utils';
 
 export const slashCommands: CommandSuggestion[] = [
+  { command: '/add-flight', description: 'Search and add flights' },
+  { command: '/add-hotels', description: 'Search and add hotels' },
+  { command: '/add-cars', description: 'Search and add car rentals' },
   { command: '/MerchantPay Terminal', description: 'Payment flow: PNR, invoice, charge card or vCard' },
   { command: '/searchpnr', description: 'Search for a PNR across all GDS' },
   { command: '/rebook', description: 'Initiate rebooking workflow' },
