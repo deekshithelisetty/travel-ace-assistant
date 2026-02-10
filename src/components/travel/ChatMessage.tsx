@@ -3,6 +3,18 @@ import { Message } from '@/types/crm';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 
+import travelAssistantAvatar from '@/assets/travel-assistant-avatar.png';
+import {
+  ItineraryCard,
+  InvoiceCard,
+  CCVStatusCard,
+  PayomoSummaryCard,
+  TravelersCard,
+  TicketInfoCard,
+  ActivitiesCard,
+  CancelPnrResultCard,
+} from './TripInfoCards';
+
 interface ChatMessageProps {
   message: Message;
 }
@@ -16,16 +28,18 @@ export function ChatMessage({ message }: ChatMessageProps) {
       isAssistant ? "justify-start" : "justify-end"
     )}>
       {isAssistant && (
-        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-          <Sparkles className="h-5 w-5 text-primary" />
+        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-soft border border-border/50">
+          <img 
+            src={travelAssistantAvatar} 
+            alt="Travel Assistant" 
+            className="w-full h-full object-cover"
+          />
         </div>
       )}
       
       <div className={cn(
-        "max-w-2xl rounded-2xl px-5 py-4",
-        isAssistant 
-          ? "bg-secondary border border-border" 
-          : "bg-surface-overlay border border-primary/20"
+        "max-w-2xl px-5 py-4 glass-bubble",
+        isAssistant ? "rounded-2xl" : "rounded-2xl"
       )}>
         {isAssistant && (
           <div className="text-primary font-semibold text-sm mb-2 tracking-wide">
@@ -37,7 +51,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {message.sender}
           </div>
         )}
-        <div className="prose prose-invert prose-sm max-w-none">
+        <div className="prose prose-sm max-w-none prose-p:text-foreground prose-strong:text-foreground prose-headings:text-foreground">
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
         {message.gdsOutput && (
@@ -60,6 +74,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </ul>
           </div>
         )}
+        {message.itineraryData && <ItineraryCard pnr={message.itineraryData.pnr} ref={message.itineraryData.ref} segments={message.itineraryData.segments} />}
+        {message.invoiceData && <InvoiceCard data={message.invoiceData} />}
+        {message.ccvStatusData && <CCVStatusCard status={message.ccvStatusData.status} highRisk={message.ccvStatusData.highRisk} proceedFulfillment={message.ccvStatusData.proceedFulfillment} identityCheckScore={message.ccvStatusData.identityCheckScore} validations={message.ccvStatusData.validations} />}
+        {message.ccvSummaryData && <PayomoSummaryCard data={message.ccvSummaryData} />}
+        {message.travelersData && message.travelersData.length > 0 && <TravelersCard travelers={message.travelersData} />}
+        {message.ticketInfoData && message.ticketInfoData.length > 0 && <TicketInfoCard tickets={message.ticketInfoData} />}
+        {message.activitiesData && message.activitiesData.length > 0 && <ActivitiesCard events={message.activitiesData} title="Activity" />}
+        {message.lifecycleData && message.lifecycleData.length > 0 && <ActivitiesCard events={message.lifecycleData} title="Life Cycle" />}
+        {message.cancelPnrResult && <CancelPnrResultCard pnr={message.cancelPnrResult.pnr} cancelled={message.cancelPnrResult.cancelled} message={message.cancelPnrResult.message} />}
         <div className={cn(
           "text-xs text-muted-foreground mt-2",
           !isAssistant && "text-right"

@@ -3,7 +3,9 @@ import { ActivityPanel } from '@/components/travel/ActivityPanel';
 import { Workspace } from '@/components/travel/Workspace';
 import { CaseIntelligencePanel } from '@/components/travel/CaseIntelligencePanel';
 import { FlightResultsPanel } from '@/components/travel/FlightResultsPanel';
-import { ActivityItem, Tab, CaseIntelligence, WorkedCase, CCVInfo, PNRActivityEvent, FlightOption } from '@/types/crm';
+import { HotelResultsPanel } from '@/components/travel/HotelResultsPanel';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { ActivityItem, Tab, CaseIntelligence, WorkedCase, CCVInfo, PNRActivityEvent, FlightOption, HotelOption } from '@/types/crm';
 
 // Sample CCV-rejected PNR for flow demo
 const sampleCCVInfo: CCVInfo = {
@@ -41,7 +43,7 @@ const sampleCCVActivity: PNRActivityEvent[] = [
   { id: 'a5', type: 'BOOKING', title: 'MXCHSI - BOOKING', subtitle: 'Amanatullah Amanatullah - MANUAL_BOOKING', timestamp: '02/06/2026 4:12 p', status: 'SUCCESS' },
 ];
 
-// Sample activity data
+// Sample activity data – different cards for CCV, CCD, Ticketing, Ancillary, ReIssue, Refund
 const sampleActivities: ActivityItem[] = [
   {
     id: 'ccv1',
@@ -55,13 +57,95 @@ const sampleActivities: ActivityItem[] = [
     caseId: 'CV1001511838',
     ccvInfo: sampleCCVInfo,
     pnrActivity: sampleCCVActivity,
+    flowSteps: [
+      { key: 'booking', label: 'Booking', status: 'completed' },
+      { key: 'ccv', label: 'Credit card verification', status: 'failed' },
+      { key: 'ticketing', label: 'Ticketing', status: 'pending' },
+      { key: 'ancillary', label: 'Ancillaries', status: 'pending' },
+    ],
+  },
+  {
+    id: 'ccd1',
+    type: 'ccd',
+    title: 'Credit card denied – No funds',
+    subtitle: 'Ticketing failed due to card decline. Customer to update payment.',
+    timestamp: 'JUST NOW',
+    badge: 'PNR:AB12CD',
+    isNew: true,
+    status: 'new',
+    flowSteps: [
+      { key: 'booking', label: 'Booking', status: 'completed' },
+      { key: 'ccv', label: 'Credit card verification', status: 'completed' },
+      { key: 'ticketing', label: 'Ticketing', status: 'failed' },
+      { key: 'ancillary', label: 'Ancillaries', status: 'pending' },
+    ],
+  },
+  {
+    id: 'tick1',
+    type: 'ticketing_failed',
+    title: 'Ticketing failed – Pax / fare issue',
+    subtitle: 'Pax information missing or fare mismatch. Classes not available.',
+    timestamp: '2M AGO',
+    badge: 'PNR:EF34GH',
+    isNew: true,
+    status: 'new',
+    flowSteps: [
+      { key: 'booking', label: 'Booking', status: 'completed' },
+      { key: 'ccv', label: 'Credit card verification', status: 'completed' },
+      { key: 'ticketing', label: 'Ticketing', status: 'failed' },
+      { key: 'ancillary', label: 'Ancillaries', status: 'pending' },
+    ],
+  },
+  {
+    id: 'anc1',
+    type: 'ancillary_failed',
+    title: 'Ancillary failed – Seats/meals',
+    subtitle: 'Seats, meals or insurance request failed. Manual review needed.',
+    timestamp: '5M AGO',
+    badge: 'PNR:IJ56KL',
+    isNew: true,
+    status: 'new',
+    flowSteps: [
+      { key: 'booking', label: 'Booking', status: 'completed' },
+      { key: 'ccv', label: 'Credit card verification', status: 'completed' },
+      { key: 'ticketing', label: 'Ticketing', status: 'completed' },
+      { key: 'ancillary', label: 'Ancillaries', status: 'failed' },
+    ],
+  },
+  {
+    id: 'reissue1',
+    type: 'reissue_failed',
+    title: 'Reissue failed – Manual review',
+    subtitle: 'AI reissue processing failed. Agent action required.',
+    timestamp: '8M AGO',
+    badge: 'PNR:MN78OP',
+    isNew: true,
+    status: 'new',
+    flowSteps: [
+      { key: 'booking', label: 'Booking', status: 'completed' },
+      { key: 'reissue', label: 'Reissue', status: 'failed' },
+    ],
+  },
+  {
+    id: 'refund1',
+    type: 'refund_failed',
+    title: 'Refund failed – Manual review',
+    subtitle: 'AI refund processing failed. Agent action required.',
+    timestamp: '12M AGO',
+    badge: 'PNR:QR90ST',
+    isNew: true,
+    status: 'new',
+    flowSteps: [
+      { key: 'booking', label: 'Booking', status: 'completed' },
+      { key: 'refund', label: 'Refund', status: 'failed' },
+    ],
   },
   {
     id: '1',
     type: 'pnr',
     title: 'Ticketing Request Pending',
     subtitle: 'BA285 LHR-SFO',
-    timestamp: 'JUST NOW',
+    timestamp: '15M AGO',
     badge: 'PNR:GHK821',
     isNew: true,
     status: 'new',
@@ -71,7 +155,7 @@ const sampleActivities: ActivityItem[] = [
     type: 'pnr',
     title: 'Rebooking Confirmed',
     subtitle: 'Lufthansa FRA-JFK Seg 01 updated.',
-    timestamp: '5M AGO',
+    timestamp: '20M AGO',
     badge: 'PNR:GHK821',
     status: 'resolved',
     caseId: 'CS-9821',
@@ -143,9 +227,11 @@ const TravelCRM = () => {
   const [caseIntelligence, setCaseIntelligence] = useState<CaseIntelligence | null>(null);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [rightPanelMode, setRightPanelMode] = useState<'intelligence' | 'flight_results'>('intelligence');
+  const [rightPanelMode, setRightPanelMode] = useState<'intelligence' | 'flight_results' | 'hotel_results'>('intelligence');
   const [flightResults, setFlightResults] = useState<FlightOption[]>([]);
   const [flightSearchTabId, setFlightSearchTabId] = useState<string | null>(null);
+  const [hotelResults, setHotelResults] = useState<HotelOption[]>([]);
+  const [hotelSearchTabId, setHotelSearchTabId] = useState<string | null>(null);
   const [pendingQuickAction, setPendingQuickAction] = useState<{ tabId: string; message: string } | null>(null);
 
   const openCaseForItem = (item: ActivityItem) => {
@@ -178,11 +264,12 @@ const TravelCRM = () => {
         { id: newTab.id, pnr, title: `CCV ${pnr}`, status: 'working', lastWorked: 'Just now' },
       ]);
     } else {
+      const isManualIntervention = ['ccd', 'ticketing_failed', 'ancillary_failed', 'reissue_failed', 'refund_failed'].includes(item.type);
       const newTab: Tab = {
         id: `${item.type}-${item.id}`,
         type: item.type === 'email' ? 'email' : 'pnr',
-        label: item.type === 'pnr' ? `Case #${pnr}` : `Email: ${item.subtitle}`,
-        pnr: item.type === 'pnr' ? pnr : undefined,
+        label: item.type === 'email' ? `Email: ${item.subtitle}` : isManualIntervention ? item.badge : `Case #${pnr}`,
+        pnr: item.type === 'email' ? undefined : pnr,
         email: item.type === 'email' ? item.subtitle : undefined,
         status: 'working',
         accepted: true,
@@ -260,6 +347,16 @@ const TravelCRM = () => {
       setTabs((prev) => [{ id: 'global', type: 'global', label: 'GLOBAL' }, ...prev]);
     }
     setActiveTab('global');
+  };
+
+  /** Send message from left-panel Chat tab into main chat (global tab) and get AI response */
+  const handleSendFromSidebar = (text: string) => {
+    const hasGlobal = tabs.some((t) => t.id === 'global');
+    if (!hasGlobal) {
+      setTabs((prev) => [{ id: 'global', type: 'global', label: 'GLOBAL' }, ...prev]);
+    }
+    setActiveTab('global');
+    setPendingQuickAction({ tabId: 'global', message: text.trim() });
   };
 
   /** Quick action: open a new conversation tab and send the action as first message; AI will suggest tab name */
@@ -394,70 +491,153 @@ const TravelCRM = () => {
     }
   };
 
-  const handleShowRightPanel = (content: 'intelligence' | 'flight_results', data?: any) => {
+  const handleShowRightPanel = (content: 'intelligence' | 'flight_results' | 'hotel_results', data?: any) => {
     setRightPanelMode(content);
     if (content === 'flight_results') {
-      setFlightResults(data);
+      setFlightResults(data ?? []);
       setFlightSearchTabId(activeTab);
+    }
+    if (content === 'hotel_results') {
+      setHotelResults(data ?? []);
+      setHotelSearchTabId(activeTab);
     }
     setRightPanelOpen(true);
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden">
-      <ActivityPanel
-        items={activities}
-        workedCases={workedCases}
-        onItemClick={handleActivityClick}
-        onAccept={handleAccept}
-        onReject={handleReject}
-        onChatClick={handleChatClick}
-        onWorkedCaseClick={handleWorkedCaseClick}
-        collapsed={!leftPanelOpen}
-        onToggle={() => setLeftPanelOpen((prev) => !prev)}
-      />
-      <Workspace
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onTabClose={handleTabClose}
-        onAddTab={handleActivityClick}
-        onOpenRecentItem={handleOpenRecentItem}
-        onQuickActionClick={handleQuickActionClick}
-        pendingQuickAction={pendingQuickAction}
-        onClearPendingQuickAction={handleClearPendingQuickAction}
-        onSuggestTabLabel={handleSuggestTabLabel}
-        onCaseResolved={handleCaseResolved}
-        onShowRightPanel={handleShowRightPanel}
-      />
-      {rightPanelMode === 'intelligence' ? (
-        <CaseIntelligencePanel
-          intelligence={caseIntelligence}
-          pnrActivity={pnrActivityForPanel}
-          userInitials="HB"
-          userName="H. Bennett"
-          collapsed={!rightPanelOpen}
-          onToggle={() => setRightPanelOpen((prev) => !prev)}
-        />
+    <div className="h-screen w-screen flex overflow-hidden relative bg-background text-foreground">
+      {leftPanelOpen ? (
+        <ResizablePanelGroup direction="horizontal" className="w-full h-full">
+          <ResizablePanel defaultSize={22} minSize={16} maxSize={50} className="min-w-0">
+            <ActivityPanel
+              items={activities}
+              workedCases={workedCases}
+              onItemClick={handleActivityClick}
+              onAccept={handleAccept}
+              onReject={handleReject}
+              onChatClick={handleChatClick}
+              onSendMessage={handleSendFromSidebar}
+              onWorkedCaseClick={handleWorkedCaseClick}
+              collapsed={false}
+              onToggle={() => setLeftPanelOpen(false)}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={78} minSize={30} className="min-w-0">
+            <div className="flex h-full w-full min-w-0">
+              <div className="flex-1 min-w-0 flex flex-col">
+                <Workspace
+                tabs={tabs}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                onTabClose={handleTabClose}
+                onAddTab={handleActivityClick}
+                onOpenRecentItem={handleOpenRecentItem}
+                onQuickActionClick={handleQuickActionClick}
+                pendingQuickAction={pendingQuickAction}
+                onClearPendingQuickAction={handleClearPendingQuickAction}
+                onSuggestTabLabel={handleSuggestTabLabel}
+                onCaseResolved={handleCaseResolved}
+                onShowRightPanel={handleShowRightPanel}
+              />
+              </div>
+              {rightPanelMode === 'intelligence' ? (
+                <CaseIntelligencePanel
+                  intelligence={caseIntelligence}
+                  pnrActivity={pnrActivityForPanel}
+                  userInitials="HB"
+                  userName="H. Bennett"
+                  collapsed={!rightPanelOpen}
+                  onToggle={() => setRightPanelOpen((prev) => !prev)}
+                />
+              ) : (
+                <FlightResultsPanel
+                  options={flightResults}
+                  onSelect={(opt) => {
+                    if (flightSearchTabId) {
+                      setPendingQuickAction({ tabId: flightSearchTabId, message: `Select flight ${opt.flightNumber}` });
+                      setActiveTab(flightSearchTabId);
+                    }
+                  }}
+                  collapsed={!rightPanelOpen}
+                  onToggle={() => {
+                    setRightPanelOpen((prev) => !prev);
+                    if (rightPanelOpen) setTimeout(() => setRightPanelMode('intelligence'), 300);
+                  }}
+                />
+              )}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       ) : (
-        <FlightResultsPanel
-          options={flightResults}
-          onSelect={(opt) => {
-            if (flightSearchTabId) {
-              setPendingQuickAction({ tabId: flightSearchTabId, message: `Select flight ${opt.flightNumber}` });
-              setActiveTab(flightSearchTabId);
-            }
-          }}
-          collapsed={!rightPanelOpen}
-          onToggle={() => {
-              // If toggling off, maybe reset to intelligence next time? Or keep state.
-              setRightPanelOpen((prev) => !prev);
-              if (rightPanelOpen) { // Closing
-                  // optionally timeout reset
-                  setTimeout(() => setRightPanelMode('intelligence'), 300);
-              }
-          }}
-        />
+        <div className="flex flex-1 h-full min-w-0 relative">
+          <button
+            type="button"
+            onClick={() => setLeftPanelOpen(true)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-7 h-14 rounded-r-lg bg-card border border-l-0 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary shadow-md"
+            aria-label="Expand left panel"
+          >
+            →
+          </button>
+          <div className="flex flex-1 h-full min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
+              <Workspace
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            onTabClose={handleTabClose}
+            onAddTab={handleActivityClick}
+            onOpenRecentItem={handleOpenRecentItem}
+            onQuickActionClick={handleQuickActionClick}
+            pendingQuickAction={pendingQuickAction}
+            onClearPendingQuickAction={handleClearPendingQuickAction}
+            onSuggestTabLabel={handleSuggestTabLabel}
+            onCaseResolved={handleCaseResolved}
+            onShowRightPanel={handleShowRightPanel}
+          />
+            </div>
+            {rightPanelMode === 'intelligence' ? (
+              <CaseIntelligencePanel
+              intelligence={caseIntelligence}
+              pnrActivity={pnrActivityForPanel}
+              userInitials="HB"
+              userName="H. Bennett"
+              collapsed={!rightPanelOpen}
+              onToggle={() => setRightPanelOpen((prev) => !prev)}
+            />
+            ) : rightPanelMode === 'hotel_results' ? (
+              <HotelResultsPanel
+                options={hotelResults}
+                onSelect={(opt) => {
+                  if (hotelSearchTabId) {
+                    setPendingQuickAction({ tabId: hotelSearchTabId, message: opt.name });
+                    setActiveTab(hotelSearchTabId);
+                  }
+                }}
+                collapsed={!rightPanelOpen}
+                onToggle={() => {
+                  setRightPanelOpen((prev) => !prev);
+                  if (rightPanelOpen) setTimeout(() => setRightPanelMode('intelligence'), 300);
+                }}
+              />
+            ) : (
+              <FlightResultsPanel
+                options={flightResults}
+                onSelect={(opt) => {
+                  if (flightSearchTabId) {
+                    setPendingQuickAction({ tabId: flightSearchTabId, message: `Select flight ${opt.flightNumber}` });
+                    setActiveTab(flightSearchTabId);
+                  }
+                }}
+                collapsed={!rightPanelOpen}
+                onToggle={() => {
+                  setRightPanelOpen((prev) => !prev);
+                  if (rightPanelOpen) setTimeout(() => setRightPanelMode('intelligence'), 300);
+                }}
+              />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

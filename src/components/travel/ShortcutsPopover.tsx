@@ -44,8 +44,8 @@ export function ShortcutsPopover({ type, items, selectedIndex, onSelect, visible
   const title = type === '/' ? 'Commands' : type === '@' ? 'Assign to' : 'Route to Team';
 
   return (
-    <div className="absolute bottom-full left-0 mb-2 w-72 bg-popover border border-border rounded-xl shadow-xl overflow-hidden animate-fade-in z-50">
-      <div className="px-3 py-2 border-b border-border">
+    <div className="absolute bottom-full left-0 mb-2 w-72 glass-panel overflow-hidden animate-fade-in z-50">
+      <div className="px-3 py-2 border-b border-border/80">
         <span className="text-xs text-muted-foreground uppercase">{title}</span>
       </div>
       <div className="max-h-48 overflow-y-auto">

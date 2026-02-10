@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <circle cx="64" cy="64" r="62" fill="hsl(217 91% 96%)" stroke="hsl(217 91% 65%)" stroke-width="2"/>
+  <!-- Head -->
+  <circle cx="64" cy="52" r="22" fill="hsl(217 20% 92%)" stroke="hsl(217 91% 65%)" stroke-width="1.5"/>
+  <!-- Eyes -->
+  <circle cx="56" cy="48" r="3" fill="hsl(217 91% 40%)"/>
+  <circle cx="72" cy="48" r="3" fill="hsl(217 91% 40%)"/>
+  <!-- Smile -->
+  <path d="M 52 58 Q 64 66 76 58" stroke="hsl(217 91% 50%)" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Travel / pilot cap -->
+  <ellipse cx="64" cy="32" rx="26" ry="10" fill="hsl(217 91% 60%)"/>
+  <path d="M 38 32 L 64 22 L 90 32 L 64 42 Z" fill="hsl(217 91% 55%)"/>
+  <!-- Small plane badge -->
+  <path d="M 60 28 L 64 24 L 68 28 L 64 30 Z" fill="white" opacity="0.9"/>
+</svg>

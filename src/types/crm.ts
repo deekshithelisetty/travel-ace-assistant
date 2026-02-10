@@ -1,5 +1,24 @@
-export type ActivityType = 'pnr' | 'email' | 'queue' | 'ccv_rejected';
+export type ActivityType =
+  | 'pnr'
+  | 'email'
+  | 'queue'
+  | 'ccv_rejected'
+  | 'ccd'
+  | 'ticketing_failed'
+  | 'ancillary_failed'
+  | 'reissue_failed'
+  | 'refund_failed';
 export type ActivityStatus = 'new' | 'working' | 'resolved' | 'closed';
+
+/** Single step in the reservation flow (Booking → CCV → Ticketing → …) for activity cards */
+export type FlowStepStatus = 'completed' | 'failed' | 'pending';
+export interface FlowStep {
+  key: string;
+  label: string;
+  status: FlowStepStatus;
+  /** Optional time for delivery/order-style steps (e.g. "9:12 am") */
+  timestamp?: string;
+}
 
 export interface ActivityItem {
   id: string;
@@ -14,6 +33,8 @@ export interface ActivityItem {
   /** When type is ccv_rejected, link to CCV info for the opened tab */
   ccvInfo?: CCVInfo;
   pnrActivity?: PNRActivityEvent[];
+  /** Pipeline steps: which are completed, which failed (for manual intervention cards) */
+  flowSteps?: FlowStep[];
 }
 
 /** Payomo/CCV fraud and identity verification summary for a PNR */
@@ -127,6 +148,134 @@ export interface FlightSearchState {
   };
 }
 
+/** Hotel policies for display (rules, check-in/out, fees) */
+export interface HotelPolicies {
+  checkIn: string;
+  checkOut: string;
+  checkInInstructions?: string;
+  cancellationPolicy?: string;
+  parking?: string;
+  childrenAndBeds?: string;
+  pets?: string;
+  optionalFees?: string[];
+  general?: string[];
+}
+
+/** Hotel search result for display and selection */
+export interface HotelOption {
+  id: string;
+  name: string;
+  address: string;
+  starRating: number;
+  pricePerNight: string;
+  totalPrice: string;
+  amenities: string[];
+  rating?: number;
+  reviewCount?: number;
+  distance?: string;
+  /** Optional image URL for hotel photo */
+  imageUrl?: string;
+  /** Hotel rules and policies (shown when selecting rooms) */
+  policies?: HotelPolicies;
+}
+
+/** Room type option for a selected hotel */
+export interface HotelRoomOption {
+  id: string;
+  roomType: string;
+  bedType: string;
+  roomSize?: string;
+  pricePerNight: string;
+  totalPrice: string;
+  cancellationPolicy: string;
+  features: string[];
+  sleeps?: number;
+}
+
+/** Hotel search/booking flow state */
+export interface HotelSearchState {
+  step: 'location' | 'checkIn' | 'checkOut' | 'rooms' | 'guests' | 'results' | 'room_selection' | 'guest_details' | 'payment' | 'confirmation';
+  location?: string;
+  checkIn?: string;
+  checkOut?: string;
+  rooms?: number;
+  guests?: number;
+  results: HotelOption[];
+  selectedHotel?: HotelOption;
+  roomOptions?: HotelRoomOption[];
+  selectedRoom?: HotelRoomOption;
+  guestDetails?: { name: string; email: string; phone: string };
+  paymentDetails?: { cardLast4?: string; name?: string };
+  confirmed?: boolean;
+}
+
+/** Hotel booking confirmation for display after booking */
+export interface HotelBookingConfirmation {
+  hotel: HotelOption;
+  room: HotelRoomOption;
+  checkIn: string;
+  checkOut: string;
+  rooms: number;
+  guests: number;
+  guestName: string;
+  guestEmail: string;
+  totalPrice: string;
+  confirmationNumber: string;
+}
+
+/** Trip Info – itinerary segment for chat display */
+export interface ItinerarySegment {
+  flightNumber: string;
+  airline: string;
+  departure: { airport: string; city?: string; time: string; date: string };
+  arrival: { airport: string; city?: string; time: string; date: string };
+  duration: string;
+  cabin: string;
+  airlinePnr?: string;
+}
+
+/** Trip Info – invoice summary for chat */
+export interface InvoiceSummary {
+  invoiceNumber: string;
+  invoiceDate: string;
+  refNumber: string;
+  pnr: string;
+  totalDue: string;
+  currency: string;
+  paymentApplied?: string;
+  status: 'TICKETED' | 'PENDING' | 'CANCELLED';
+  itinerarySummary?: string;
+}
+
+/** Trip Info – travelers for chat */
+export interface TravelerSummary {
+  name: string;
+  type: string;
+  dob?: string;
+  pnr: string;
+  eTicket?: string;
+  status: string;
+}
+
+/** Trip Info – activity/lifecycle event for chat */
+export interface TripActivityEvent {
+  id: string;
+  timestamp: string;
+  action: string;
+  detail?: string;
+  status: 'SUCCESS' | 'FAILURE' | 'PENDING';
+  actor?: string;
+}
+
+/** Single ancillary option (seat, baggage, meal, etc.) for PNR */
+export interface AncillaryOption {
+  id: string;
+  name: string;
+  type: 'seat' | 'baggage' | 'meal' | 'insurance' | 'lounge' | 'other';
+  price?: string;
+  detail?: string;
+}
+
 export interface Message {
   id: string;
   role: 'assistant' | 'user';
@@ -141,6 +290,30 @@ export interface Message {
   ticketNumbers?: string[];
   /** Flight options to display in chat */
   flightOptions?: FlightOption[];
+  /** Trip Info – rich content for chat */
+  itineraryData?: { pnr: string; ref: string; segments: ItinerarySegment[] };
+  invoiceData?: InvoiceSummary;
+  ccvStatusData?: { status: string; highRisk: boolean; proceedFulfillment: boolean; identityCheckScore?: number; validations?: CCVInfo['validations'] };
+  /** Full Payomo/CCV summary for structured card (CCV tab initial message) */
+  ccvSummaryData?: CCVInfo;
+  travelersData?: TravelerSummary[];
+  ticketInfoData?: { ticketNumbers: string[]; pnr: string; travelerName?: string }[];
+  activitiesData?: TripActivityEvent[];
+  lifecycleData?: TripActivityEvent[];
+  /** Shown after user confirms cancel PNR */
+  cancelPnrResult?: { pnr: string; cancelled: boolean; message: string };
+  /** Available ancillaries for current PNR – user selects one or more, then adds to PNR */
+  ancillaryOptions?: { pnr: string; items: AncillaryOption[] };
+  /** Top hotel results in chat; View all opens right panel */
+  hotelOptions?: HotelOption[];
+  /** Room options for selected hotel */
+  hotelRoomOptions?: HotelRoomOption[];
+  /** Hotel name when showing room options (for card title) */
+  hotelNameForRooms?: string;
+  /** Hotel policies to show with room options */
+  hotelPolicies?: HotelPolicies;
+  /** After booking, show this confirmation */
+  hotelBookingConfirmation?: HotelBookingConfirmation;
 }
 
 export interface CommandSuggestion {

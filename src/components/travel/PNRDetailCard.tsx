@@ -10,12 +10,12 @@ interface PNRDetailCardProps {
 
 export function PNRDetailCard({ data, onViewReceipt, onSyncPNR }: PNRDetailCardProps) {
   return (
-    <div className="bg-secondary/50 border border-border rounded-2xl p-5 animate-fade-in">
-      {/* Header */}
+    <div className="glass-bubble rounded-2xl p-5 animate-fade-in max-w-2xl">
+      {/* Header – match AI response card: no colored left border, same bg */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-badge-queue/20 flex items-center justify-center">
-            <CheckCircle className="h-5 w-5 text-badge-queue" />
+          <div className="w-10 h-10 rounded-xl bg-muted/80 border border-border flex items-center justify-center">
+            <CheckCircle className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground">Rebooking confirmed</h3>

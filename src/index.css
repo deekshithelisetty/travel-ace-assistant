@@ -5,9 +5,9 @@
 @tailwind utilities;
 
 @layer base {
-  /* Light theme (default) */
+  /* Light theme – glassmorphism / frosted glass */
   :root {
-    --background: 0 0% 100%;
+    --background: 220 14% 96%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,30 +16,30 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 187 100% 42%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
+    --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96%;
+    --muted: 220 14% 94%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 187 100% 42%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 187 100% 42%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --cyan-glow: 187 100% 50%;
-    --surface-elevated: 0 0% 98%;
-    --surface-overlay: 0 0% 96%;
+    --cyan-glow: 217 91% 60%;
+    --surface-elevated: 0 0% 100%;
+    --surface-overlay: 0 0% 100%;
     --text-dim: 215 16% 47%;
     --badge-pnr: 187 100% 42%;
     --badge-email: 280 80% 60%;
@@ -48,65 +48,279 @@
     --gds-amadeus: 45 100% 50%;
     --gds-worldspan: 280 80% 60%;
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 187 100% 42%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent: 220 14% 96%;
     --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 187 100% 42%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Glassmorphism – visible frosted glass */
+    --glass-bg: 0 0% 100% / 0.65;
+    --glass-border: 220 13% 88% / 0.9;
+    --glass-shadow: 220 25% 50% / 0.12;
+    --glass-shadow-lg: 220 25% 40% / 0.18;
+    --pastel-mint: 152 60% 92%;
+    --pastel-blue: 217 90% 94%;
+    --pastel-lavender: 262 80% 94%;
+    --pastel-peach: 25 100% 95%;
   }
 
   /* Dark theme */
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    --background: 222 28% 10%;
+    --foreground: 210 20% 98%;
 
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 28% 12%;
+    --card-foreground: 210 20% 98%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 28% 13%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 187 100% 42%;
-    --primary-foreground: 222 47% 6%;
+    --primary: 187 100% 48%;
+    --primary-foreground: 222 28% 6%;
 
-    --secondary: 222 30% 14%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 210 20% 98%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 222 22% 20%;
+    --muted-foreground: 215 18% 85%;
 
-    --accent: 187 100% 42%;
-    --accent-foreground: 222 47% 6%;
+    --accent: 187 100% 48%;
+    --accent-foreground: 222 28% 6%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 210 20% 98%;
 
-    --border: 222 30% 18%;
-    --input: 222 30% 14%;
-    --ring: 187 100% 42%;
+    --border: 222 22% 24%;
+    --input: 222 22% 16%;
+    --ring: 187 100% 48%;
 
-    --cyan-glow: 187 100% 50%;
-    --surface-elevated: 222 40% 12%;
-    --surface-overlay: 222 35% 15%;
-    --text-dim: 215 20% 45%;
-    --badge-pnr: 187 100% 42%;
+    --cyan-glow: 187 100% 52%;
+    --surface-elevated: 222 28% 14%;
+    --surface-overlay: 222 25% 16%;
+    --text-dim: 215 18% 85%;
+    --badge-pnr: 187 100% 48%;
     --badge-email: 280 80% 60%;
     --badge-queue: 142 70% 45%;
     --gds-sabre: 187 100% 42%;
     --gds-amadeus: 45 100% 50%;
     --gds-worldspan: 280 80% 60%;
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 187 100% 42%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 30% 14%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 187 100% 42%;
+    --sidebar-background: 222 28% 11%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 187 100% 48%;
+    --sidebar-primary-foreground: 222 28% 6%;
+    --sidebar-accent: 222 22% 16%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 222 22% 24%;
+    --sidebar-ring: 187 100% 48%;
+  }
+
+  /* Dark theme – Orange & Teal (flow diagram / tech style) */
+  .dark-orange-teal {
+    --background: 222 30% 10%;
+    --foreground: 0 0% 98%;
+
+    --card: 222 28% 13%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 222 28% 14%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 25 95% 55%;
+    --primary-foreground: 222 30% 6%;
+
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 222 22% 20%;
+    --muted-foreground: 215 15% 85%;
+
+    --accent: 174 72% 48%;
+    --accent-foreground: 222 30% 6%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 222 22% 24%;
+    --input: 222 22% 16%;
+    --ring: 25 95% 55%;
+
+    --cyan-glow: 174 72% 52%;
+    --surface-elevated: 222 28% 14%;
+    --surface-overlay: 222 25% 16%;
+    --text-dim: 215 15% 85%;
+    --badge-pnr: 174 72% 48%;
+    --badge-email: 25 95% 55%;
+    --badge-queue: 142 70% 45%;
+    --gds-sabre: 174 72% 48%;
+    --gds-amadeus: 45 100% 50%;
+    --gds-worldspan: 280 80% 60%;
+
+    --sidebar-background: 222 28% 12%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 25 95% 55%;
+    --sidebar-primary-foreground: 222 30% 6%;
+    --sidebar-accent: 222 22% 16%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 222 22% 24%;
+    --sidebar-ring: 25 95% 55%;
+  }
+
+  /* Dark theme – Purple & Blue (dashboard / gradient style) */
+  .dark-purple-blue {
+    --background: 222 35% 10%;
+    --foreground: 210 20% 98%;
+
+    --card: 222 32% 13%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 222 32% 14%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 262 80% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 28% 17%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 222 28% 20%;
+    --muted-foreground: 215 20% 85%;
+
+    --accent: 217 91% 62%;
+    --accent-foreground: 222 35% 6%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 222 28% 24%;
+    --input: 222 28% 17%;
+    --ring: 262 80% 62%;
+
+    --cyan-glow: 217 91% 64%;
+    --surface-elevated: 222 32% 15%;
+    --surface-overlay: 222 28% 17%;
+    --text-dim: 215 20% 85%;
+    --badge-pnr: 217 91% 62%;
+    --badge-email: 262 80% 62%;
+    --badge-queue: 142 70% 45%;
+    --gds-sabre: 217 91% 62%;
+    --gds-amadeus: 45 100% 50%;
+    --gds-worldspan: 280 80% 60%;
+
+    --sidebar-background: 222 32% 11%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 262 80% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 28% 17%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 222 28% 24%;
+    --sidebar-ring: 262 80% 62%;
+  }
+
+  /* Dark theme – CardTecth-style (dark charcoal, teal/cyan primary, yellow accent, subtle grid) */
+  .dark-cardtecth {
+    --background: 240 8% 11%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 6% 14%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 6% 14%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 187 85% 52%;
+    --primary-foreground: 240 8% 6%;
+
+    --secondary: 240 6% 18%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 6% 22%;
+    --muted-foreground: 0 0% 85%;
+
+    --accent: 45 100% 55%;
+    --accent-foreground: 240 8% 6%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 6% 26%;
+    --input: 240 6% 18%;
+    --ring: 187 85% 52%;
+
+    --cyan-glow: 187 85% 55%;
+    --surface-elevated: 240 6% 16%;
+    --surface-overlay: 240 6% 18%;
+    --text-dim: 0 0% 85%;
+    --badge-pnr: 187 85% 52%;
+    --badge-email: 45 100% 55%;
+    --badge-queue: 142 70% 45%;
+    --gds-sabre: 187 85% 52%;
+    --gds-amadeus: 45 100% 50%;
+    --gds-worldspan: 280 80% 60%;
+
+    --sidebar-background: 240 8% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 187 85% 52%;
+    --sidebar-primary-foreground: 240 8% 6%;
+    --sidebar-accent: 240 6% 18%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 6% 26%;
+    --sidebar-ring: 187 85% 52%;
+  }
+
+  /* Dark theme – Appixy-style (charcoal, yellow CTA, green accent, subtle grid) */
+  .dark-appixy {
+    --background: 0 0% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 45 100% 55%;
+    --primary-foreground: 0 0% 8%;
+
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 24%;
+    --muted-foreground: 0 0% 85%;
+
+    --accent: 142 70% 48%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 26%;
+    --input: 0 0% 20%;
+    --ring: 45 100% 55%;
+
+    --cyan-glow: 142 70% 52%;
+    --surface-elevated: 0 0% 18%;
+    --surface-overlay: 0 0% 20%;
+    --text-dim: 0 0% 85%;
+    --badge-pnr: 142 70% 48%;
+    --badge-email: 45 100% 55%;
+    --badge-queue: 142 70% 45%;
+    --gds-sabre: 142 70% 48%;
+    --gds-amadeus: 45 100% 50%;
+    --gds-worldspan: 262 80% 60%;
+
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 45 100% 55%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 26%;
+    --sidebar-ring: 45 100% 55%;
   }
 }
 
@@ -115,9 +329,122 @@
     @apply border-border;
   }
 
+  #root {
+    min-height: 100vh;
+    background: transparent;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    /* Light: glassmorphism gradient; dark themes: use CSS variable */
+    background: linear-gradient(165deg, hsl(220 25% 97%) 0%, hsl(215 20% 94%) 40%, hsl(220 18% 95%) 100%);
+    min-height: 100vh;
+  }
+
+  html.dark body,
+  html.dark-orange-teal body,
+  html.dark-purple-blue body,
+  html.dark-appixy body,
+  html.dark-cardtecth body {
+    background: hsl(var(--background));
+  }
+
+  /* CardTecth theme: dark charcoal + subtle grid */
+  html.dark-cardtecth body {
+    background: linear-gradient(165deg, hsl(240 8% 10%) 0%, hsl(240 6% 12%) 50%, hsl(240 8% 11%) 100%);
+    background-color: hsl(var(--background));
+  }
+
+  html.dark-cardtecth body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(hsl(0 0% 100% / 0.02) 1px, transparent 1px),
+                      linear-gradient(90deg, hsl(0 0% 100% / 0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  html.dark-cardtecth #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  html.dark-cardtecth #root > div {
+    background: transparent;
+  }
+
+  /* Appixy theme: subtle gradient + grid texture */
+  html.dark-appixy body {
+    background: linear-gradient(165deg, hsl(0 0% 11%) 0%, hsl(140 15% 12%) 30%, hsl(260 10% 12%) 70%, hsl(0 0% 12%) 100%);
+    background-color: hsl(var(--background));
+  }
+
+  html.dark-appixy body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(hsl(0 0% 20% / 0.03) 1px, transparent 1px),
+                      linear-gradient(90deg, hsl(0 0% 20% / 0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  html.dark-appixy #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  html.dark-appixy #root > div {
+    background: transparent;
+  }
+
+  /* Workspace chat area: theme-aware background (no hardcoded light gradient in dark) */
+  .workspace-chat-area {
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.97) 15%, transparent 30%, transparent 70%, hsl(var(--background) / 0.97) 100%);
+  }
+
+  .workspace-welcome-bg {
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, hsl(var(--primary) / 0.08) 0%, transparent 55%), transparent;
+  }
+
+  /* Dark themes: clearer typography, avoid overly heavy font so workspace doesn’t dominate */
+  html[class*="dark"] body {
+    font-weight: 450;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: 0.01em;
+    color: hsl(var(--foreground));
+  }
+
+  html[class*="dark"] .text-muted-foreground {
+    font-weight: 450;
+    color: hsl(var(--muted-foreground));
+  }
+
+  html[class*="dark"] input::placeholder,
+  html[class*="dark"] textarea::placeholder {
+    color: hsl(var(--muted-foreground));
+    opacity: 1;
+  }
+
+  /* Dark: glass panels use theme surfaces so tools and inputs stay visible */
+  html[class*="dark"] {
+    --glass-bg: 222 28% 14% / 0.92;
+    --glass-border: 222 22% 24% / 0.95;
+    --glass-shadow: 0 0% 0% / 0.2;
+    --glass-shadow-lg: 0 0% 0% / 0.28;
+  }
+
+  html.dark-orange-teal,
+  html.dark-purple-blue,
+  html.dark-cardtecth,
+  html.dark-appixy {
+    --glass-bg: 222 25% 16% / 0.92;
+    --glass-border: 222 20% 26% / 0.95;
   }
 
   /* Custom scrollbar */
@@ -171,8 +498,45 @@
   }
 
   .bg-glass {
-    background: hsl(var(--surface-elevated) / 0.8);
-    backdrop-filter: blur(12px);
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 1px 3px hsl(var(--glass-shadow));
+  }
+
+  .glass-panel {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 8px 32px hsl(var(--glass-shadow)), 0 0 0 1px hsl(var(--glass-border));
+    border-radius: var(--radius);
+  }
+
+  .glass-bubble {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 4px 20px hsl(var(--glass-shadow)), 0 0 0 1px hsl(var(--glass-border) / 0.5);
+    border-radius: 1rem;
+  }
+
+  .glass-input {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 4px 16px hsl(var(--glass-shadow)), 0 0 0 1px hsl(var(--glass-border) / 0.5);
+    border-radius: 1.25rem;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 2px 12px hsl(var(--glass-shadow));
+  }
+
+  .shadow-soft-lg {
+    box-shadow: 0 8px 32px hsl(var(--glass-shadow-lg));
   }
 
   .animate-pulse-glow {

@@ -1,4 +1,4 @@
-import { Shield, Inbox, UserCheck, Zap, CheckCircle, ChevronLeft, ChevronRight, Settings, Sun, Moon, Monitor, CreditCard, FolderOpen, CalendarCheck } from 'lucide-react';
+import { Shield, Inbox, UserCheck, Zap, CheckCircle, ChevronLeft, ChevronRight, Settings, Sun, Moon, Monitor, CreditCard, FolderOpen, CalendarCheck, Flame, Palette, Layout } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { CaseIntelligence, TimelineEvent, PNRActivityEvent, PNRActivityEventType } from '@/types/crm';
 import { cn } from '@/lib/utils';
@@ -70,11 +70,22 @@ export function CaseIntelligencePanel({
 }: CaseIntelligencePanelProps) {
   const { theme, setTheme } = useTheme();
 
+  const handleThemeChange = (v: string) => {
+    setTheme(v);
+    // Apply class immediately so theme reflects without refresh (next-themes updates in effect, which can lag)
+    if (v && v !== 'system') {
+      document.documentElement.setAttribute('class', v);
+    } else if (v === 'system') {
+      const resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('class', resolved);
+    }
+  };
+
   const themeMenu = (
     <>
       <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
       <DropdownMenuSeparator />
-      <DropdownMenuRadioGroup value={theme ?? 'light'} onValueChange={(v) => setTheme(v)}>
+      <DropdownMenuRadioGroup value={theme ?? 'light'} onValueChange={handleThemeChange}>
         <DropdownMenuRadioItem value="light">
           <Sun className="mr-2 h-4 w-4" />
           Light
@@ -82,6 +93,22 @@ export function CaseIntelligencePanel({
         <DropdownMenuRadioItem value="dark">
           <Moon className="mr-2 h-4 w-4" />
           Dark
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="dark-orange-teal">
+          <Flame className="mr-2 h-4 w-4" />
+          Dark (Orange & Teal)
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="dark-purple-blue">
+          <Palette className="mr-2 h-4 w-4" />
+          Dark (Purple & Blue)
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="dark-appixy">
+          <Layout className="mr-2 h-4 w-4" />
+          Dark (Appixy)
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="dark-cardtecth">
+          <CreditCard className="mr-2 h-4 w-4" />
+          Dark (CardTecth)
         </DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="system">
           <Monitor className="mr-2 h-4 w-4" />
@@ -94,7 +121,7 @@ export function CaseIntelligencePanel({
   /* Collapsed rail: only icons at bottom + expand button */
   if (collapsed) {
     return (
-      <aside className="w-14 h-full flex flex-col bg-card border-l border-border shrink-0">
+      <aside className="w-14 h-full flex flex-col bg-card/80 border-l border-border shrink-0 backdrop-blur-xl">
         <button
           type="button"
           onClick={onToggle}
@@ -133,7 +160,7 @@ export function CaseIntelligencePanel({
   }
 
   return (
-    <aside className="w-72 h-full flex flex-col bg-card border-l border-border shrink-0 min-h-0">
+    <aside className="w-72 h-full flex flex-col bg-card/90 border-l border-border shrink-0 min-h-0 backdrop-blur-xl shadow-soft">
       {/* Header with collapse - always visible */}
       <div className="shrink-0 p-4 border-b border-border flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground tracking-wide truncate min-w-0">CASE INTELLIGENCE</h2>

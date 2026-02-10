@@ -129,7 +129,7 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="p-4 border-t border-border relative">
+      <form id="chat-input-form" onSubmit={handleSubmit} className="p-4 border-t border-border/80 bg-background/40 backdrop-blur-sm relative">
         {/* Shortcuts Popover */}
         {showShortcuts && (
           <ShortcutsPopover
@@ -141,7 +141,7 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
           />
         )}
 
-        <div className="flex items-center gap-2 bg-secondary/50 border border-border rounded-2xl px-4 py-3">
+        <div className="flex items-center gap-2 glass-input px-4 py-3">
           {/* GDS Toggles */}
           <div className="flex items-center gap-1">
             {gdsOptions.map((gds) => {
@@ -213,7 +213,7 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
               className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
                 message.trim()
-                  ? "bg-primary text-primary-foreground glow-cyan-subtle"
+                  ? "bg-primary text-primary-foreground shadow-soft"
                   : "bg-muted text-muted-foreground"
               )}
             >

@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Clock, Zap } from 'lucide-react';
+import travelAssistantAvatar from '@/assets/travel-assistant-avatar.png';
 import { WorkspaceTabs } from './WorkspaceTabs';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SearchResultsTable } from './SearchResultsTable';
 import { PNRDetailCard } from './PNRDetailCard';
 import { FlightChatCard } from './FlightChatCard';
-import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo, FlightSearchState, FlightOption } from '@/types/crm';
+import { HotelChatCard } from './HotelChatCard';
+import { HotelRoomOptionsCard } from './HotelRoomOptionsCard';
+import { HotelBookingConfirmationCard } from './HotelBookingConfirmationCard';
+import { HotelPoliciesCard } from './HotelPoliciesCard';
+import { AncillaryOptionsCard } from './AncillaryOptionsCard';
+import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo, FlightSearchState, FlightOption, AncillaryOption, HotelOption, HotelRoomOption, HotelSearchState, HotelBookingConfirmation, HotelPolicies, type ItinerarySegment, type InvoiceSummary, type TravelerSummary, type TripActivityEvent } from '@/types/crm';
 
 interface WorkspaceProps {
   tabs: Tab[];
@@ -22,7 +28,7 @@ interface WorkspaceProps {
   onClearPendingQuickAction?: () => void;
   onSuggestTabLabel?: (tabId: string, suggestedLabel: string) => void;
   onCaseResolved?: (tabId: string) => void;
-  onShowRightPanel?: (content: 'intelligence' | 'flight_results', data?: any) => void;
+  onShowRightPanel?: (content: 'intelligence' | 'flight_results' | 'hotel_results', data?: any) => void;
 }
 
 /** AI-determined tab name from quick-action or first message */
@@ -105,6 +111,66 @@ SUBJECT TO GOVERNMENT APPROVAL
 * - FOR ADDITIONAL CLASSES ENTER 1*C.`;
 }
 
+/** Generate sample fare rules output for PNR (GDS-style display in chat). */
+function getSampleFareRulesOutput(pnr: string, gds: GDSType): string {
+  const gdsLabel = gds === 'SBR' ? 'SABRE' : gds === 'AMD' ? 'AMADEUS' : 'WORLDSPAN';
+  return `FARE RULES - PNR ${pnr} (${gdsLabel})
+────────────────────────────────────────
+
+FARE BASIS: Y26  CATEGORY 01 - APPLICABILITY
+  APPLIES TO ALL JOURNEYS
+
+CATEGORY 02 - DAY/TIME
+  NO RESTRICTIONS
+
+CATEGORY 03 - SEASONALITY
+  TRAVEL FROM 01MAR26 THRU 31OCT26
+
+CATEGORY 04 - FLIGHT APPLICATION
+  ANY FLIGHT
+  RESERVATIONS REQUIRED
+
+CATEGORY 05 - ADVANCE RESERVATION/TICKETING
+  RESERVATIONS REQUIRED
+  TICKETING DEADLINE: 24 HOURS BEFORE DEPARTURE
+
+CATEGORY 06 - MINIMUM STAY
+  NO MINIMUM STAY
+
+CATEGORY 07 - MAXIMUM STAY
+  1 MONTH
+
+CATEGORY 08 - STOPOVERS
+  2 STOPOVERS PERMITTED
+
+CATEGORY 09 - TRANSFERS
+  UNLIMITED TRANSFERS PERMITTED
+
+CATEGORY 10 - COMBINATIONS
+  END-ON-END COMBINATIONS PERMITTED
+  SAME CARRIER COMBINATIONS PERMITTED
+
+CATEGORY 11 - BLACKOUT DATES
+  NONE
+
+CATEGORY 12 - SURCHARGES
+  NO SURCHARGES
+
+CATEGORY 13 - ACCOMPANIED TRAVEL
+  UNACCOMPANIED TRAVEL PERMITTED
+
+CATEGORY 14 - TRAVEL RESTRICTIONS
+  NON-REFUNDABLE
+  CHANGES PERMITTED WITH FEE
+
+CATEGORY 15 - PENALTIES
+  CANCELLATION: USD 200.00
+  CHANGE: USD 150.00 AFTER DEPARTURE
+
+────────────────────────────────────────
+* END OF FARE RULES *`;
+}
+
 // Sample PNR data for proactive AI suggestions
 const samplePNRData: PNRData = {
   pnr: 'GHK821',
@@ -123,6 +189,71 @@ const sampleFlights: FlightOption[] = [
   { id: '4', airline: 'United Airlines', flightNumber: 'UA 123', departureTime: '8:00a', arrivalTime: '9:30a', origin: 'SFO', destination: 'LAX', duration: '1h 30m', price: 135, stops: 0, cabin: 'Economy' },
   { id: '5', airline: 'Southwest', flightNumber: 'WN 456', departureTime: '9:00a', arrivalTime: '10:30a', origin: 'SFO', destination: 'LAX', duration: '1h 30m', price: 110, stops: 0, cabin: 'Economy' },
   { id: '6', airline: 'Delta Air Lines', flightNumber: 'DL 2000', departureTime: '10:00a', arrivalTime: '11:32a', origin: 'SFO', destination: 'LAX', duration: '1h 32m', price: 145, stops: 0, cabin: 'Economy' }
+];
+
+/** Mock Trip Info data for chat (PNR KCOHLY / Ref 1023596020) */
+const TRIP_INFO_PNR = 'KCOHLY';
+const TRIP_INFO_REF = '1023596020';
+const mockItinerarySegments: ItinerarySegment[] = [
+  { flightNumber: '4466', airline: 'UA', departure: { airport: 'SGF', time: '3:10 PM', date: '23 Mar' }, arrival: { airport: 'ORD', time: '4:59 PM', date: '23 Mar' }, duration: '1h 49m', cabin: 'Economy', airlinePnr: 'SIV20RX' },
+  { flightNumber: '2179', airline: 'UA', departure: { airport: 'ORD', time: '6:20 PM', date: '23 Mar' }, arrival: { airport: 'SFO', time: '9:26 PM', date: '23 Mar' }, duration: '5h 6m', cabin: 'Economy', airlinePnr: 'SIV20RX' },
+  { flightNumber: '853', airline: 'UA', departure: { airport: 'SFO', time: '11:20 PM', date: '23 Mar' }, arrival: { airport: 'TPE', time: '4:45 AM', date: '25 Mar' }, duration: '13h 25m', cabin: 'Economy', airlinePnr: 'SIV20RX' },
+  { flightNumber: '852', airline: 'UA', departure: { airport: 'TPE', time: '2:30 PM', date: '08 Apr' }, arrival: { airport: 'SFO', time: '11:05 AM', date: '08 Apr' }, duration: '11h 35m', cabin: 'Economy', airlinePnr: 'LIV20RX' },
+  { flightNumber: '1387', airline: 'UA', departure: { airport: 'SFO', time: '12:35 PM', date: '08 Apr' }, arrival: { airport: 'IAH', time: '6:41 PM', date: '08 Apr' }, duration: '3h 6m', cabin: 'Economy', airlinePnr: 'LIV20RX' },
+  { flightNumber: '4343', airline: 'UA', departure: { airport: 'IAH', time: '8:05 PM', date: '08 Apr' }, arrival: { airport: 'SGF', time: '10:00 PM', date: '08 Apr' }, duration: '1h 55m', cabin: 'Economy', airlinePnr: 'LIV20RX' },
+];
+const mockInvoice: InvoiceSummary = { invoiceNumber: '2102603850', invoiceDate: 'FEB 10, 2026', refNumber: TRIP_INFO_REF, pnr: TRIP_INFO_PNR, totalDue: '1,035.03', currency: 'USD', paymentApplied: '1,040.03', status: 'TICKETED', itinerarySummary: 'SGF–TPE Mar 23, 2026 · Return Apr 8, 2026' };
+const mockTravelers: TravelerSummary[] = [{ name: 'ANGEL HUANG', type: 'Adult', pnr: TRIP_INFO_PNR, eTicket: '016-7368159511', status: 'BOOKED' }];
+const mockTicketInfo = [{ ticketNumbers: ['016-7368159511'], pnr: TRIP_INFO_PNR, travelerName: 'ANGEL HUANG' }];
+
+const mockAncillaries: AncillaryOption[] = [
+  { id: 'anc-1', name: 'Seat 12A (Extra legroom)', type: 'seat', price: '$45', detail: 'Window' },
+  { id: 'anc-2', name: 'Seat 14C (Exit row)', type: 'seat', price: '$65', detail: 'Aisle' },
+  { id: 'anc-3', name: 'Checked bag 23 kg', type: 'baggage', price: '$55' },
+  { id: 'anc-4', name: 'Checked bag 32 kg', type: 'baggage', price: '$85' },
+  { id: 'anc-5', name: 'Hot meal (Vegetarian)', type: 'meal', price: '$18' },
+  { id: 'anc-6', name: 'Hot meal (Non-veg)', type: 'meal', price: '$22' },
+  { id: 'anc-7', name: 'Travel insurance', type: 'insurance', price: '$29' },
+  { id: 'anc-8', name: 'Lounge access', type: 'lounge', price: '$35', detail: 'Single use' },
+];
+
+const defaultHotelPolicies: HotelPolicies = {
+  checkIn: '3:00 PM to anytime',
+  checkOut: '12:00 PM',
+  checkInInstructions: 'Government-issued photo ID and credit card required. Special requests subject to availability. Credit/debit cards accepted; cash not accepted. Property may pre-authorize your card prior to arrival.',
+  cancellationPolicy: 'Free cancellation before 6:00 PM on arrival date. Non-refundable after that.',
+  parking: 'Uncovered self-parking available (surcharge).',
+  childrenAndBeds: 'Children 11 and under stay free with existing bedding.',
+  pets: 'Pets allowed (2 max, 40 lb each). Pet fee applies. Service animals exempt.',
+  optionalFees: ['Self-parking: USD 48/night', 'Pet fee: USD 50/night (max USD 150/stay)', 'Breakfast: USD 9–20'],
+  general: ['24-hour front desk', 'Free WiFi in public areas', 'Smoke-free property', 'LGBTQ+ friendly'],
+};
+
+const sampleHotels: HotelOption[] = [
+  { id: 'h1', name: 'Grand Hyatt at SFO', address: 'San Francisco International Airport, San Francisco, CA', starRating: 4, pricePerNight: '$502', totalPrice: '$5,532', amenities: ['Free WiFi', 'Pool', 'Spa', 'Free Cancellation'], rating: 9.0, reviewCount: 1240, distance: '0.76 miles from airport', imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=260&fit=crop', policies: defaultHotelPolicies },
+  { id: 'h2', name: 'The Westin San Francisco Airport', address: '1 Old Bayshore Hwy, Millbrae, CA 94030', starRating: 4, pricePerNight: '$182', totalPrice: '$2,002', amenities: ['Free WiFi', 'Pool', 'Free Breakfast'], rating: 8.6, reviewCount: 892, distance: '1.2 miles from airport', imageUrl: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=400&h=260&fit=crop', policies: defaultHotelPolicies },
+  { id: 'h3', name: 'Aloft San Francisco Airport', address: '401 E Millbrae Ave, Millbrae, CA 94030', starRating: 4, pricePerNight: '$145', totalPrice: '$1,595', amenities: ['Free WiFi', 'Fitness', 'Free Cancellation'], rating: 8.4, reviewCount: 756, distance: '0.9 miles from airport', imageUrl: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400&h=260&fit=crop', policies: defaultHotelPolicies },
+  { id: 'h4', name: 'Marriott San Francisco Airport', address: '1800 Old Bayshore Hwy, Burlingame, CA 94010', starRating: 4, pricePerNight: '$198', totalPrice: '$2,178', amenities: ['Free WiFi', 'Pool', 'Restaurant', 'Free Cancellation'], rating: 8.8, reviewCount: 1103, distance: '1.5 miles from airport', imageUrl: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=400&h=260&fit=crop', policies: defaultHotelPolicies },
+  { id: 'h5', name: 'Hilton San Francisco Airport', address: 'San Francisco International Airport, CA', starRating: 4, pricePerNight: '$225', totalPrice: '$2,475', amenities: ['Free WiFi', 'Pool', 'Spa', 'Free Airport Shuttle'], rating: 8.9, reviewCount: 987, distance: '0.3 miles from airport', imageUrl: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&h=260&fit=crop', policies: defaultHotelPolicies },
+  { id: 'h6', name: 'Sheraton San Francisco Airport', address: '600 Airport Blvd, Burlingame, CA 94010', starRating: 4, pricePerNight: '$175', totalPrice: '$1,925', amenities: ['Free WiFi', 'Fitness', 'Restaurant'], rating: 8.2, reviewCount: 654, distance: '1.1 miles from airport', imageUrl: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=260&fit=crop', policies: defaultHotelPolicies },
+];
+
+function getSampleRoomOptionsForHotel(_hotelName: string): HotelRoomOption[] {
+  return [
+    { id: 'r1', roomType: '2 Queen Beds', bedType: '2 Queen', roomSize: '350 sq.ft.', pricePerNight: '$145', totalPrice: '$1,662.50', cancellationPolicy: 'Non-Refundable', features: ['Free WiFi', 'Refrigerator', 'Climate Control', 'Non-Smoking', 'TV'], sleeps: 4 },
+    { id: 'r2', roomType: '2 Queen Beds', bedType: '2 Queen', roomSize: '350 sq.ft.', pricePerNight: '$165', totalPrice: '$1,889.00', cancellationPolicy: 'Free Cancellation before 6:00 PM', features: ['Free WiFi', 'Refrigerator', 'Climate Control', 'Non-Smoking', 'TV'], sleeps: 4 },
+    { id: 'r3', roomType: '1 King Bed', bedType: '1 King', roomSize: '350 sq.ft.', pricePerNight: '$185', totalPrice: '$2,123.50', cancellationPolicy: 'Free Cancellation', features: ['Free WiFi', 'Breakfast', 'Refrigerator', 'TV'], sleeps: 2 },
+  ];
+}
+const mockActivities: TripActivityEvent[] = [
+  { id: 'a1', timestamp: '02/10/2026 12:43', action: 'KCOHLY - TICKETING_QC', status: 'SUCCESS', actor: 'Auto User - QC' },
+  { id: 'a2', timestamp: '02/10/2026 12:43', action: 'KCOHLY - INVOICE', status: 'SUCCESS', actor: 'Auto User - QC' },
+  { id: 'a3', timestamp: '02/10/2026 12:40', action: 'KCOHLY - BOOKING', detail: 'Manual booking', status: 'SUCCESS', actor: 'Ling tomato - Canada Ticketing' },
+];
+const mockLifecycle: TripActivityEvent[] = [
+  { id: 'l1', timestamp: '02/10/2026 12:43', action: 'Invoice created', detail: 'Ticket numbers 7368159511', status: 'SUCCESS', actor: 'Auto User' },
+  { id: 'l2', timestamp: '02/10/2026 12:40', action: 'QC completed', detail: 'Tickets 7368159511', status: 'SUCCESS', actor: 'Auto User' },
+  { id: 'l3', timestamp: '02/10/2026 12:40', action: 'Booking created', status: 'SUCCESS', actor: 'Ling tomato' },
 ];
 
 export function Workspace({
@@ -150,8 +281,11 @@ export function Workspace({
   });
   const [merchantPayFlow, setMerchantPayFlow] = useState<Record<string, MerchantPayFlow>>({});
   const [flightSearchFlow, setFlightSearchFlow] = useState<Record<string, FlightSearchState>>({});
+  const [hotelSearchFlow, setHotelSearchFlow] = useState<Record<string, HotelSearchState>>({});
   /** When user types a GDS command before PCC is set, we ask for PCC and store the command to run after they connect. */
   const [pendingGdsCommand, setPendingGdsCommand] = useState<Record<string, string>>({});
+  /** When user asked to cancel PNR, we store PNR per tab until they confirm (yes/confirm). */
+  const [pendingCancelPnr, setPendingCancelPnr] = useState<Record<string, string | null>>({});
 
   const currentMessages = messagesPerTab[activeTab] || [];
   const currentTab = tabs.find(t => t.id === activeTab);
@@ -170,13 +304,14 @@ export function Workspace({
     return () => clearTimeout(t);
   }, [currentMessages.length, currentMessages, activeTab]);
 
-  // When a quick-action tab is opened, send the pending message in that tab (once)
+  // When a quick-action tab is opened (or message sent from sidebar to global), send the pending message once
   useEffect(() => {
     if (!pendingQuickAction || activeTab !== pendingQuickAction.tabId) return;
     if (sentQuickActionForRef.current === pendingQuickAction.tabId) return;
     sentQuickActionForRef.current = pendingQuickAction.tabId;
     handleSend(pendingQuickAction.message, gdsState);
     onClearPendingQuickAction?.();
+    sentQuickActionForRef.current = null; // allow next sidebar/quick message to same or other tab
   }, [activeTab, pendingQuickAction]);
 
   // Proactive AI suggestions when a PNR tab is opened
@@ -222,38 +357,17 @@ export function Workspace({
     }
   }, [activeTab, currentTab?.type]);
 
-  // CCV tab: seed conversation with Payomo/CCV summary so agent can review why it went to CCV, travel date, and decide fraud or not
+  // CCV tab: seed conversation with structured Payomo/CCV summary card so agent can review and decide fraud or not
   useEffect(() => {
     if (currentTab?.type !== 'ccv' || !currentTab.ccvInfo || messagesPerTab[activeTab]?.length) return;
     const c = currentTab.ccvInfo as CCVInfo;
-    const lines: string[] = [];
-    lines.push(`**Payomo / CCV summary — PNR ${c.pnr}**`);
-    lines.push('');
-    lines.push(`**Status:** ${c.status} · **High risk:** ${c.highRisk} · **Proceed fulfillment:** ${c.proceedFulfillment}`);
-    lines.push(`**Identity check score:** ${c.identityCheckScore} · **Identity network score:** ${c.identityNetworkScore}`);
-    lines.push('');
-    lines.push('**Validation:**');
-    lines.push(`· Phone: ${c.validations.phone.valid ? 'Valid' : 'Invalid'}${c.validations.phone.match === false ? ' (no match)' : ''}`);
-    lines.push(`· Email: ${c.validations.email.valid ? 'Valid' : 'Invalid'}${c.validations.email.match === false ? ' (no match)' : ''}`);
-    lines.push(`· Address: ${c.validations.address.valid ? 'Valid' : '**Invalid**'}${c.validations.address.match === false ? ' (no match)' : ''}`);
-    lines.push('');
-    lines.push('**Customer:** ' + c.customer.name);
-    lines.push('**Phone:** ' + c.customer.phone + ' · **Email:** ' + c.customer.email);
-    lines.push('**IP:** ' + c.customer.ipAddress);
-    lines.push('**Billing:** ' + c.customer.billingAddress);
-    if (c.journey) {
-      lines.push('');
-      lines.push(`**Journey:** ${c.journey.route} · **Date:** ${c.journey.date}`);
-    }
-    lines.push('');
-    lines.push('Review the above. If **not fraud**, reply with *verified good* or *passed* to proceed to ticketing. If **fraud**, reply with *verified bad* or *decline* to close the case.');
-
     const initialMessages: Message[] = [
       {
         id: 'ccv-1',
         role: 'assistant',
-        content: lines.join('\n'),
+        content: `Payomo / CCV summary for PNR ${c.pnr}. Review the details below and reply with *verified good* or *verified bad*.`,
         timestamp: '',
+        ccvSummaryData: c,
         suggestions: [
           { command: 'verified good', description: 'Not fraud – proceed to ticketing' },
           { command: 'verified bad', description: 'Fraud – decline and close' },
@@ -368,6 +482,99 @@ export function Workspace({
       [activeTab]: [...(prev[activeTab] || []), newMessage],
     }));
 
+    // ----- Trip Info intents FIRST (so itinerary/invoice/CCV etc. always show cards, including on CCV tab) -----
+    const lowerContent = content.trim().toLowerCase();
+    const pendingPnr = pendingCancelPnr[activeTab];
+    if (pendingPnr && /^(yes|confirm|yeah|yep|ok|proceed|cancel\s+it)$/i.test(lowerContent)) {
+      setPendingCancelPnr(prev => ({ ...prev, [activeTab]: null }));
+      setTimeout(() => {
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `PNR **${pendingPnr}** has been cancelled.`,
+          timestamp: '',
+          cancelPnrResult: { pnr: pendingPnr, cancelled: true, message: 'Cancellation completed successfully.' },
+        };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 600);
+      return;
+    }
+    if (pendingPnr && !/^(no|cancel|nevermind|abort)$/i.test(lowerContent)) {
+      setTimeout(() => {
+        const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Reply **yes** to confirm cancelling the PNR or **no** to keep it.', timestamp: '' };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 400);
+      return;
+    }
+    if (pendingPnr && /^(no|cancel|nevermind|abort)$/i.test(lowerContent)) {
+      setPendingCancelPnr(prev => ({ ...prev, [activeTab]: null }));
+      setTimeout(() => {
+        const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Cancellation not performed. PNR remains active.', timestamp: '' };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 400);
+      return;
+    }
+    const showItinerary = /\b(itinerary|itin|flights?|segments?|route)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?(trip\s+)?itinerary/i.test(lowerContent) || /(what'?s?|give me|want to see|get)\s+(the\s+)?(trip\s+)?itinerary/i.test(lowerContent);
+    const showInvoice = /\b(invoice|inv)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?invoice/i.test(lowerContent) || /what'?s?\s+(the\s+)?invoice/i.test(lowerContent);
+    const showCcv = /\b(ccv|cvv|payment\s+status|card\s+status|payomo|verification)\b/i.test(lowerContent) || /show\s+ccv\s+status/i.test(lowerContent) || /what'?s?\s+(the\s+)?ccv/i.test(lowerContent);
+    const showTravelers = /\b(travelers?|passengers?|pax)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?travelers/i.test(lowerContent);
+    const showTickets = /\b(ticket(s)?|e-?ticket|eticket)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?ticket/i.test(lowerContent);
+    const showFareRules = /\b(fare\s*rules?|fare\s*rule)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?fare\s*rules?/i.test(lowerContent) || /(what'?s?|give me|get|want to see)\s+(the\s+)?fare\s*rules?/i.test(lowerContent);
+    const showAncillaries = /\b(ancillaries?|ancillary)\b/i.test(lowerContent) || /show\s+(me\s+)?(all\s+)?(the\s+)?ancillaries?/i.test(lowerContent) || /(what\s+ancillaries?|view\s+ancillaries?|available\s+ancillaries?)/i.test(lowerContent);
+    const showActivities = /\b(activities?|activity\s+log|timeline)\b/i.test(lowerContent) && !/life\s*cycle/i.test(lowerContent);
+    const showLifecycle = /\b(life\s*cycle|lifecycle)\b/i.test(lowerContent) || /show\s+life\s*cycle/i.test(lowerContent);
+    const cancelPnrIntent = /\b(cancel\s+(the\s+)?(pnr|booking)|cancel\s+pnr|void\s+pnr)\b/i.test(lowerContent);
+    if (cancelPnrIntent) {
+      setPendingCancelPnr(prev => ({ ...prev, [activeTab]: TRIP_INFO_PNR }));
+      setTimeout(() => {
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `Do you want to cancel PNR **${TRIP_INFO_PNR}**? This cannot be undone. Reply **yes** to confirm or **no** to keep the booking.`,
+          timestamp: '',
+          suggestions: [{ command: 'yes', description: 'Confirm cancellation' }, { command: 'no', description: 'Keep booking' }],
+        };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 500);
+      return;
+    }
+    if (showItinerary || showInvoice || showCcv || showTravelers || showTickets || showFareRules || showAncillaries || showActivities || showLifecycle) {
+      const pnrForResponse = currentTab?.pnr || (currentTab?.label?.match(/PNR:\s*(\S+)/i)?.[1]) || TRIP_INFO_PNR;
+      const parts: string[] = [];
+      if (showItinerary) parts.push('itinerary');
+      if (showInvoice) parts.push('invoice');
+      if (showCcv) parts.push('CCV status');
+      if (showTravelers) parts.push('travelers');
+      if (showTickets) parts.push('ticket info');
+      if (showFareRules) parts.push('fare rules');
+      if (showAncillaries) parts.push('ancillaries');
+      if (showActivities) parts.push('activities');
+      if (showLifecycle) parts.push('life cycle');
+      const summary = parts.length === 1
+        ? (showAncillaries ? `Here are the **available ancillaries** for PNR ${pnrForResponse}. Select one or more and click **Add to PNR**.` : `Here's the **${parts[0]}** for PNR ${pnrForResponse}.`)
+        : `Here's the **${parts.join(', ')}** for PNR ${pnrForResponse}.`;
+      const fareRulesGdsOutput = showFareRules ? getSampleFareRulesOutput(pnrForResponse, currentGdsState?.selected ?? 'SBR') : undefined;
+      setTimeout(() => {
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: summary,
+          timestamp: '',
+          ...(showItinerary && { itineraryData: { pnr: TRIP_INFO_PNR, ref: TRIP_INFO_REF, segments: mockItinerarySegments } }),
+          ...(showInvoice && { invoiceData: mockInvoice }),
+          ...(showCcv && { ccvStatusData: { status: 'APPROVED', highRisk: false, proceedFulfillment: true, identityCheckScore: 65, validations: { phone: { valid: true, value: '', match: true }, email: { valid: true, value: '', match: true }, address: { valid: false, match: false } } } }),
+          ...(showTravelers && { travelersData: mockTravelers }),
+          ...(showTickets && { ticketInfoData: mockTicketInfo }),
+          ...(showFareRules && fareRulesGdsOutput && { gdsOutput: fareRulesGdsOutput }),
+          ...(showAncillaries && { ancillaryOptions: { pnr: pnrForResponse, items: mockAncillaries } }),
+          ...(showActivities && { activitiesData: mockActivities }),
+          ...(showLifecycle && { lifecycleData: mockLifecycle }),
+        };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 600);
+      return;
+    }
+
     // ----- CCV tab: agent decision (verified good → ticketing; verified bad → close) -----
     if (currentTab?.type === 'ccv') {
       const lower = content.trim().toLowerCase();
@@ -426,6 +633,220 @@ export function Workspace({
     if (content.startsWith('/')) {
       handleSlashCommand(content, currentGdsState);
       return;
+    }
+
+    // ----- Hotel Search Flow -----
+    const hotelState = hotelSearchFlow[activeTab];
+    if (hotelState) {
+      if (hotelState.step === 'location') {
+        setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, location: content, step: 'checkIn' } }));
+        setTimeout(() => {
+          const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'What is your **check-in date**? (e.g. Feb 20, 2026)', timestamp: '' };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+      }
+      if (hotelState.step === 'checkIn') {
+        setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, checkIn: content, step: 'checkOut' } }));
+        setTimeout(() => {
+          const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'What is your **check-out date**? (e.g. Mar 2, 2026)', timestamp: '' };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+      }
+      if (hotelState.step === 'checkOut') {
+        setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, checkOut: content, step: 'rooms' } }));
+        setTimeout(() => {
+          const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'How many **rooms**? (e.g. 1)', timestamp: '' };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+      }
+      if (hotelState.step === 'rooms') {
+        const roomsMatch = content.match(/(\d+)/);
+        const rooms = roomsMatch ? parseInt(roomsMatch[1], 10) : 1;
+        setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, rooms, step: 'guests' } }));
+        setTimeout(() => {
+          const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'How many **guests**? (e.g. 2)', timestamp: '' };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+      }
+      if (hotelState.step === 'guests') {
+        const guestsMatch = content.match(/(\d+)/);
+        const guests = guestsMatch ? parseInt(guestsMatch[1], 10) : 1;
+        setTimeout(() => {
+          const searchingMsg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Searching hotels...', timestamp: '' };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), searchingMsg] }));
+        }, 200);
+        setTimeout(() => {
+          const updatedState: HotelSearchState = { ...hotelState, guests, results: sampleHotels, step: 'results' };
+          setHotelSearchFlow(prev => ({ ...prev, [activeTab]: updatedState }));
+          const resultMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `I found ${sampleHotels.length} hotels for ${hotelState.location}. Here are the top 5. Click "View all results" to see all in the side panel, or select by number (e.g. 1st, 2nd) or hotel name.`,
+            timestamp: '',
+            hotelOptions: sampleHotels,
+          };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), resultMsg] }));
+          // Right panel opens only when user clicks "View all results"
+        }, 1500);
+        return;
+      }
+      if (hotelState.step === 'results') {
+        const lower = content.toLowerCase();
+        let selected: HotelOption | undefined;
+        const pickByIndex = (n: number) => (n >= 1 && n <= hotelState.results.length ? hotelState.results[n - 1] : null);
+        const numberMatch = lower.match(/(?:option|choice|#|select)?\s*(\d+)/);
+        if (numberMatch) {
+          const idx = parseInt(numberMatch[1]);
+          if (idx >= 1 && idx <= 10) {
+            const match = pickByIndex(idx);
+            if (match) selected = match;
+          }
+        }
+        if (!selected) {
+          const wordMap: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, one: 1, two: 2, three: 3, four: 4, five: 5, '1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5, last: hotelState.results.length };
+          for (const [word, val] of Object.entries(wordMap)) {
+            if (new RegExp(`\\b${word}\\b`).test(lower)) {
+              const match = pickByIndex(val);
+              if (match) { selected = match; break; }
+            }
+          }
+        }
+        if (!selected) {
+          const cleanQuery = lower.replace(/select|book|hotel|option|choose|the|add\s+to\s+trip/gi, '').trim();
+          if (cleanQuery.length > 2) {
+            selected = hotelState.results.find(h => h.name.toLowerCase().includes(cleanQuery));
+          }
+        }
+        if (selected) {
+          const roomOptions = getSampleRoomOptionsForHotel(selected.name);
+          setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, selectedHotel: selected, roomOptions, step: 'room_selection' } }));
+          setTimeout(() => {
+            const msg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `You selected **${selected!.name}**. Choose a room option below. Hotel policies are shown for your reference.`,
+              timestamp: '',
+              hotelRoomOptions: roomOptions,
+              hotelNameForRooms: selected!.name,
+              hotelPolicies: selected!.policies,
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 500);
+          return;
+        }
+      }
+      if (hotelState.step === 'room_selection') {
+        const lower = content.toLowerCase();
+        let selectedRoom: HotelRoomOption | undefined;
+        const opts = hotelState.roomOptions || [];
+        const numMatch = lower.match(/(?:option|room|#)?\s*(\d+)/);
+        if (numMatch) {
+          const idx = parseInt(numMatch[1]);
+          if (idx >= 1 && idx <= opts.length) selectedRoom = opts[idx - 1];
+        }
+        if (!selectedRoom && opts.length) {
+          const wordMap: Record<string, number> = { first: 1, second: 2, third: 3, one: 1, two: 2, three: 3, '1st': 1, '2nd': 2, '3rd': 3 };
+          for (const [word, val] of Object.entries(wordMap)) {
+            if (new RegExp(`\\b${word}\\b`).test(lower) && val <= opts.length) {
+              selectedRoom = opts[val - 1];
+              break;
+            }
+          }
+        }
+        if (!selectedRoom) {
+          const roomType = opts.find(r => r.roomType.toLowerCase().includes(lower) || r.bedType.toLowerCase().includes(lower));
+          if (roomType) selectedRoom = roomType;
+        }
+        if (selectedRoom) {
+          setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, selectedRoom, step: 'guest_details' } }));
+          setTimeout(() => {
+            const msg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `Room **${selectedRoom!.roomType}** selected. Total: **${selectedRoom!.totalPrice}**. Please provide **guest details**: name, email, and phone. You can type them in one message (e.g. "John Doe, john@example.com, +1 555-123-4567") or say "Enter all information" after I ask for card details.`,
+              timestamp: '',
+              suggestions: [{ command: 'Enter all information', description: 'I have all details ready' }],
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 500);
+          return;
+        }
+      }
+      if (hotelState.step === 'guest_details') {
+        const isEnterAll = /enter\s+all\s+information/i.test(content.trim());
+        if (isEnterAll) {
+          setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, guestDetails: { name: hotelState.guestDetails?.name || 'Guest', email: hotelState.guestDetails?.email || '', phone: hotelState.guestDetails?.phone || '' }, step: 'payment' } }));
+          setTimeout(() => {
+            const total = hotelState.selectedRoom?.totalPrice || '';
+            const msg: Message = { id: Date.now().toString(), role: 'assistant', content: `**Total to pay: ${total}**. Please provide **card details** or say "Enter all information" to confirm booking.`, timestamp: '', suggestions: [{ command: 'Enter all information', description: 'Confirm and book' }] };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 500);
+          return;
+        }
+        const parts = content.split(',').map(s => s.trim()).filter(Boolean);
+        const emailPart = parts.find(p => /@/.test(p));
+        const phonePart = parts.find(p => /\+?\d[\d\s\-()]{7,}/.test(p));
+        const namePart = parts.find(p => p !== emailPart && p !== phonePart && /[A-Za-z]/.test(p)) || parts[0];
+        const name = namePart || hotelState.guestDetails?.name || '';
+        const email = emailPart || hotelState.guestDetails?.email || '';
+        const phone = phonePart || hotelState.guestDetails?.phone || '';
+        if (name || email || phone) {
+          setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, guestDetails: { name: name || hotelState.guestDetails?.name || '', email: email || hotelState.guestDetails?.email || '', phone: phone || hotelState.guestDetails?.phone || '' }, step: 'payment' } }));
+          setTimeout(() => {
+            const total = hotelState.selectedRoom?.totalPrice || '';
+            const msg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `Guest details noted. **Total to pay: ${total}**. Please provide **card details** (card number, expiry, CVV, name on card). Or say "Enter all information" to confirm booking with the details you've provided.`,
+              timestamp: '',
+              suggestions: [{ command: 'Enter all information', description: 'Confirm and book' }],
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 500);
+          return;
+        }
+      }
+      if (hotelState.step === 'payment') {
+        const isEnterAll = /enter\s+all\s+information|confirm|book\s+now|pay\s+now/i.test(content.trim());
+        const cardInfo = parseCardDetails(content);
+        if (isEnterAll || cardInfo.valid) {
+          setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...hotelState, paymentDetails: cardInfo.valid ? { cardLast4: cardInfo.last4, name: undefined } : hotelState.paymentDetails, step: 'confirmation', confirmed: true } }));
+          const confNum = 'HTL-' + Date.now().toString().slice(-8);
+          const confirmation: HotelBookingConfirmation = {
+            hotel: hotelState.selectedHotel!,
+            room: hotelState.selectedRoom!,
+            checkIn: hotelState.checkIn!,
+            checkOut: hotelState.checkOut!,
+            rooms: hotelState.rooms ?? 1,
+            guests: hotelState.guests ?? 1,
+            guestName: hotelState.guestDetails?.name || 'Guest',
+            guestEmail: hotelState.guestDetails?.email || '',
+            totalPrice: hotelState.selectedRoom!.totalPrice,
+            confirmationNumber: confNum,
+          };
+          setTimeout(() => {
+            const msg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `✅ **Hotel booked successfully.** Confirmation number: **${confNum}**.`,
+              timestamp: '',
+              hotelBookingConfirmation: confirmation,
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+            setHotelSearchFlow(prev => ({ ...prev, [activeTab]: { ...prev[activeTab]!, step: 'confirmation', confirmed: true } }));
+          }, 500);
+          return;
+        }
+        setTimeout(() => {
+          const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Please provide valid card details (number, expiry MM/YY, CVV, name) or say "Enter all information" to book.', timestamp: '' };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 400);
+        return;
+      }
     }
 
     // ----- Flight Search Flow -----
@@ -749,6 +1170,7 @@ export function Workspace({
       }
     }
 
+
     // If a GDS is selected but PCC isn't set, treat the next valid input as PCC.
     if (currentGdsState.selected && !currentGdsState.pcc) {
       const pcc = extractPccCandidate(content);
@@ -893,6 +1315,16 @@ export function Workspace({
         return;
     }
 
+    if (cmd === '/add-hotel' || cmd === '/add-hotels') {
+        const initialFlow: HotelSearchState = { step: 'location', results: [] };
+        setHotelSearchFlow(prev => ({ ...prev, [activeTab]: initialFlow }));
+        setTimeout(() => {
+            const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Starting hotel search. What is the **hotel name or location**? (e.g. San Francisco Airport, SFO)', timestamp: '' };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+    }
+
     setTimeout(() => {
       let responseContent = '';
       let suggestions: CommandSuggestion[] = [];
@@ -959,7 +1391,7 @@ export function Workspace({
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background">
+    <div className="flex-1 flex flex-col h-full min-h-0">
       <WorkspaceTabs
         tabs={tabs}
         activeTab={activeTab}
@@ -967,8 +1399,11 @@ export function Workspace({
         onTabClose={onTabClose}
       />
 
-      {/* Chat Area */}
-      <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
+      {/* Chat Area – theme-aware background so dark/light both look correct */}
+      <div
+        ref={chatScrollRef}
+        className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 workspace-chat-area"
+      >
         {/* Default workspace welcome (global tab, no messages yet) */}
         {activeTab === 'global' && currentMessages.length === 0 && (() => {
           const recentItems = [
@@ -985,14 +1420,14 @@ export function Workspace({
             { id: 'void', label: 'Void' },
           ];
           return (
-            <div
-              className="flex flex-col items-center justify-center min-h-[calc(100%-2rem)] py-12 px-4"
-              style={{
-                background: 'radial-gradient(ellipse 80% 70% at 50% 40%, hsl(var(--primary) / 0.08) 0%, transparent 55%), hsl(var(--background))',
-              }}
-            >
-              <div className="w-14 h-14 rounded-xl bg-secondary border border-border flex items-center justify-center mb-6 shadow-sm">
-                <Sparkles className="h-7 w-7 text-primary" />
+            <div className="flex flex-col items-center justify-center min-h-[calc(100%-2rem)] py-12 px-4 workspace-welcome-bg">
+              <div className="w-20 h-20 rounded-full overflow-hidden shadow-xl border-4 border-background/50 mb-6 relative group">
+                <div className="absolute inset-0 bg-primary/10 group-hover:bg-transparent transition-colors" />
+                <img 
+                  src={travelAssistantAvatar} 
+                  alt="Travel Assistant" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <h2 className="text-2xl font-bold text-foreground text-center mb-2">
                 How can I help you today?
@@ -1012,7 +1447,7 @@ export function Workspace({
                         key={item.id}
                         type="button"
                         onClick={() => onOpenRecentItem ? onOpenRecentItem(item) : handleSend(`Open ${item.label}`, gdsState)}
-                        className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3 px-4 py-2.5 rounded-xl bg-secondary/50 border border-border hover:bg-secondary hover:border-primary/20 transition-colors text-left"
+                        className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3 px-4 py-2.5 rounded-xl glass-bubble hover:shadow-soft-lg transition-all text-left"
                       >
                         <span className="text-sm font-medium text-foreground">{item.label}</span>
                         <span className="text-xs text-muted-foreground">{item.sub}</span>
@@ -1031,7 +1466,7 @@ export function Workspace({
                         key={action.id}
                         type="button"
                         onClick={() => onQuickActionClick ? onQuickActionClick(action.label) : handleSend(action.label, gdsState)}
-                        className="px-4 py-2.5 rounded-xl bg-secondary/50 border border-border hover:bg-secondary hover:border-primary/20 hover:text-primary transition-colors text-sm font-medium text-foreground"
+                        className="px-4 py-2.5 rounded-xl glass-bubble hover:shadow-soft-lg hover:text-primary transition-all text-sm font-medium text-foreground"
                       >
                         {action.label}
                       </button>
@@ -1057,9 +1492,9 @@ export function Workspace({
             <div key={message.id}>
               <ChatMessage message={message} />
               
-              {/* Show PNR Card after AI message with PNR data */}
+              {/* Show PNR Card after AI message – same width as AI bubble, same bg */}
               {message.pnrData && showPNRCard && (
-                <div className="pl-14 mt-4">
+                <div className="pl-14 mt-4 max-w-2xl">
                   <PNRDetailCard
                     data={message.pnrData}
                     onViewReceipt={() => console.log('View receipt')}
@@ -1080,6 +1515,62 @@ export function Workspace({
                         }}
                     />
                  </div>
+              )}
+
+              {/* Show Hotel Options Card (top 5 in chat, View all opens right panel) */}
+              {message.hotelOptions && (
+                <div className="pl-14 mt-4">
+                  <HotelChatCard
+                    options={message.hotelOptions}
+                    onViewAll={() => onShowRightPanel && onShowRightPanel('hotel_results', message.hotelOptions)}
+                    onSelect={(opt) => handleSend(opt.name, gdsState)}
+                  />
+                </div>
+              )}
+
+              {/* Show Hotel Room Options */}
+              {message.hotelRoomOptions && (
+                <div className="pl-14 mt-4 space-y-3">
+                  <HotelRoomOptionsCard
+                    hotelName={message.hotelNameForRooms || 'Hotel'}
+                    options={message.hotelRoomOptions}
+                    onSelect={(room) => handleSend(`Select room ${room.id}`, gdsState)}
+                  />
+                  {message.hotelPolicies && (
+                    <HotelPoliciesCard
+                      hotelName={message.hotelNameForRooms || 'Hotel'}
+                      policies={message.hotelPolicies}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Show Hotel Booking Confirmation */}
+              {message.hotelBookingConfirmation && (
+                <div className="pl-14 mt-4">
+                  <HotelBookingConfirmationCard confirmation={message.hotelBookingConfirmation} />
+                </div>
+              )}
+
+              {/* Show Ancillaries – select one or more, then Add to PNR */}
+              {message.ancillaryOptions && (
+                <div className="pl-14 mt-4">
+                  <AncillaryOptionsCard
+                    pnr={message.ancillaryOptions.pnr}
+                    items={message.ancillaryOptions.items}
+                    onAddToPnr={(selectedIds) => {
+                      const items = message.ancillaryOptions!.items;
+                      const names = items.filter((i) => selectedIds.includes(i.id)).map((i) => i.name);
+                      const confirmMsg: Message = {
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: `✅ **Added to PNR ${message.ancillaryOptions!.pnr}:** ${names.join(', ')}.`,
+                        timestamp: '',
+                      };
+                      setMessagesPerTab((prev) => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), confirmMsg] }));
+                    }}
+                  />
+                </div>
               )}
 
               {/* Command Suggestions */}
