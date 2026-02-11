@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ActivityPanel } from '@/components/travel/ActivityPanel';
 import { Workspace } from '@/components/travel/Workspace';
 import { CaseIntelligencePanel } from '@/components/travel/CaseIntelligencePanel';
@@ -218,6 +219,8 @@ const sampleIntelligence: CaseIntelligence = {
 };
 
 const TravelCRM = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activities, setActivities] = useState<ActivityItem[]>(sampleActivities);
   const [workedCases, setWorkedCases] = useState<WorkedCase[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([
@@ -233,6 +236,14 @@ const TravelCRM = () => {
   const [hotelResults, setHotelResults] = useState<HotelOption[]>([]);
   const [hotelSearchTabId, setHotelSearchTabId] = useState<string | null>(null);
   const [pendingQuickAction, setPendingQuickAction] = useState<{ tabId: string; message: string } | null>(null);
+
+  // When user opens /add-flight (e.g. bookmark or link), load app and trigger flight flow
+  useEffect(() => {
+    if (location.pathname === '/add-flight') {
+      setPendingQuickAction({ tabId: 'global', message: '/add-flight' });
+      navigate('/', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const openCaseForItem = (item: ActivityItem) => {
     const pnr = item.badge.replace('PNR:', '').trim();

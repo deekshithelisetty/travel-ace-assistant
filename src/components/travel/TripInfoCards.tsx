@@ -24,11 +24,11 @@ const segmentBg = 'bg-muted/40 border border-border/60 rounded-xl';
 
 export function ItineraryCard({
   pnr,
-  ref: refNum,
+  bookingRef,
   segments,
 }: {
   pnr: string;
-  ref: string;
+  bookingRef: string;
   segments: ItinerarySegment[];
 }) {
   return (
@@ -36,7 +36,7 @@ export function ItineraryCard({
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-primary/5">
         <Plane className="h-4 w-4 text-primary" />
         <span className="font-semibold text-sm">Itinerary</span>
-        <span className="text-xs text-muted-foreground ml-auto">PNR {pnr} · Ref {refNum}</span>
+        <span className="text-xs text-muted-foreground ml-auto">PNR {pnr} · Ref {bookingRef}</span>
       </div>
       <div className="p-4 space-y-3">
         {segments.map((seg, i) => (

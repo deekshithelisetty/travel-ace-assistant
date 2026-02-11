@@ -11,8 +11,13 @@ import { HotelChatCard } from './HotelChatCard';
 import { HotelRoomOptionsCard } from './HotelRoomOptionsCard';
 import { HotelBookingConfirmationCard } from './HotelBookingConfirmationCard';
 import { HotelPoliciesCard } from './HotelPoliciesCard';
+import { MOTPriceCard } from './MOTPriceCard';
+import { MOTPaymentCard } from './MOTPaymentCard';
+import { MOTTicketingStatusCard } from './MOTTicketingStatusCard';
+import { MOTTicketNumbersCard } from './MOTTicketNumbersCard';
+import { MOTEmailComposeCard } from './MOTEmailComposeCard';
 import { AncillaryOptionsCard } from './AncillaryOptionsCard';
-import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo, FlightSearchState, FlightOption, AncillaryOption, HotelOption, HotelRoomOption, HotelSearchState, HotelBookingConfirmation, HotelPolicies, type ItinerarySegment, type InvoiceSummary, type TravelerSummary, type TripActivityEvent } from '@/types/crm';
+import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo, FlightSearchState, FlightOption, AncillaryOption, HotelOption, HotelRoomOption, HotelSearchState, HotelBookingConfirmation, HotelPolicies, MOTPriceOption, MOTFlowState, MOTEmailCompose, type ItinerarySegment, type InvoiceSummary, type TravelerSummary, type TripActivityEvent } from '@/types/crm';
 
 interface WorkspaceProps {
   tabs: Tab[];
@@ -245,6 +250,11 @@ function getSampleRoomOptionsForHotel(_hotelName: string): HotelRoomOption[] {
     { id: 'r3', roomType: '1 King Bed', bedType: '1 King', roomSize: '350 sq.ft.', pricePerNight: '$185', totalPrice: '$2,123.50', cancellationPolicy: 'Free Cancellation', features: ['Free WiFi', 'Breakfast', 'Refrigerator', 'TV'], sleeps: 2 },
   ];
 }
+
+const sampleMOTPrices: MOTPriceOption[] = [
+  { id: 'mot1', label: 'Original fare', amount: '1,769.25', currency: 'CA$', platingCarrier: 'AC', bookingClass: 'T,T,T,L,L,L', fareBasis: 'SKYLINKCANADA-Pub-08K0' },
+  { id: 'mot2', label: 'Lowest fare', amount: '1,742.65', currency: 'CA$', platingCarrier: 'AC', bookingClass: 'T,T,T,L,L,L', fareBasis: 'CTS Canada-Lower Comm-3GAH', isLowest: true },
+];
 const mockActivities: TripActivityEvent[] = [
   { id: 'a1', timestamp: '02/10/2026 12:43', action: 'KCOHLY - TICKETING_QC', status: 'SUCCESS', actor: 'Auto User - QC' },
   { id: 'a2', timestamp: '02/10/2026 12:43', action: 'KCOHLY - INVOICE', status: 'SUCCESS', actor: 'Auto User - QC' },
@@ -282,6 +292,7 @@ export function Workspace({
   const [merchantPayFlow, setMerchantPayFlow] = useState<Record<string, MerchantPayFlow>>({});
   const [flightSearchFlow, setFlightSearchFlow] = useState<Record<string, FlightSearchState>>({});
   const [hotelSearchFlow, setHotelSearchFlow] = useState<Record<string, HotelSearchState>>({});
+  const [motFlow, setMotFlow] = useState<Record<string, MOTFlowState>>({});
   /** When user types a GDS command before PCC is set, we ask for PCC and store the command to run after they connect. */
   const [pendingGdsCommand, setPendingGdsCommand] = useState<Record<string, string>>({});
   /** When user asked to cancel PNR, we store PNR per tab until they confirm (yes/confirm). */
@@ -514,11 +525,18 @@ export function Workspace({
       }, 400);
       return;
     }
+
+    // Handle slash commands first so /add-flight starts flight search instead of showing PNR itinerary
+    if (content.startsWith('/')) {
+      handleSlashCommand(content, currentGdsState);
+      return;
+    }
+
     const showItinerary = /\b(itinerary|itin|flights?|segments?|route)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?(trip\s+)?itinerary/i.test(lowerContent) || /(what'?s?|give me|want to see|get)\s+(the\s+)?(trip\s+)?itinerary/i.test(lowerContent);
     const showInvoice = /\b(invoice|inv)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?invoice/i.test(lowerContent) || /what'?s?\s+(the\s+)?invoice/i.test(lowerContent);
     const showCcv = /\b(ccv|cvv|payment\s+status|card\s+status|payomo|verification)\b/i.test(lowerContent) || /show\s+ccv\s+status/i.test(lowerContent) || /what'?s?\s+(the\s+)?ccv/i.test(lowerContent);
     const showTravelers = /\b(travelers?|passengers?|pax)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?travelers/i.test(lowerContent);
-    const showTickets = /\b(ticket(s)?|e-?ticket|eticket)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?ticket/i.test(lowerContent);
+    const showTickets = !/order\s*ticket/i.test(lowerContent) && (/\b(ticket(s)?|e-?ticket|eticket)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?ticket/i.test(lowerContent));
     const showFareRules = /\b(fare\s*rules?|fare\s*rule)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?fare\s*rules?/i.test(lowerContent) || /(what'?s?|give me|get|want to see)\s+(the\s+)?fare\s*rules?/i.test(lowerContent);
     const showAncillaries = /\b(ancillaries?|ancillary)\b/i.test(lowerContent) || /show\s+(me\s+)?(all\s+)?(the\s+)?ancillaries?/i.test(lowerContent) || /(what\s+ancillaries?|view\s+ancillaries?|available\s+ancillaries?)/i.test(lowerContent);
     const showActivities = /\b(activities?|activity\s+log|timeline)\b/i.test(lowerContent) && !/life\s*cycle/i.test(lowerContent);
@@ -629,9 +647,179 @@ export function Workspace({
       }
     }
 
-    // Handle slash commands
-    if (content.startsWith('/')) {
-      handleSlashCommand(content, currentGdsState);
+    // ----- MOT (Manual Order Ticketing) intent: issue through mot, open mot, issue mot, order ticket, etc. -----
+    const motIntent = /\b(issue\s+through\s+mot|open\s+mot|issue\s+in\s+mot|issue\s+mot|issue\s+ticket\s+through\s+mot|order\s*ticket)\b/i.test(lowerContent);
+    if (motIntent && !motFlow[activeTab]) {
+      const pnrRef = getPnrOrTripIdFromContext().pnr;
+      const initial: MOTFlowState = { step: 'prices', pnrOrRef: pnrRef, ticketingSteps: [] };
+      setMotFlow(prev => ({ ...prev, [activeTab]: initial }));
+      setTimeout(() => {
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `Opening **MOT** for ${pnrRef}. Here are the available prices. Select one to proceed with payment and billing.`,
+          timestamp: '',
+          motPriceOptions: sampleMOTPrices,
+        };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 500);
+      return;
+    }
+
+    // ----- MOT Flow (when already in MOT) -----
+    const motState = motFlow[activeTab];
+    if (motState) {
+      if (motState.step === 'prices') {
+        const opts = sampleMOTPrices;
+        let selected: MOTPriceOption | undefined;
+        const n = lowerContent.match(/(?:option|#|select)?\s*(\d+)/);
+        if (n) {
+          const idx = parseInt(n[1]);
+          if (idx >= 1 && idx <= opts.length) selected = opts[idx - 1];
+        }
+        if (!selected && /\b(first|one|1st)\b/i.test(lowerContent)) selected = opts[0];
+        if (!selected && /\b(second|two|2nd|lowest)\b/i.test(lowerContent)) selected = opts[1] || opts[0];
+        if (!selected) selected = opts.find(o => o.label.toLowerCase().includes(lowerContent) || (o.isLowest && /lowest/i.test(lowerContent)));
+        if (selected) {
+          setMotFlow(prev => ({ ...prev, [activeTab]: { ...motState, selectedPrice: selected, step: 'payment' } }));
+          setTimeout(() => {
+            const msg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `You selected **${selected!.currency}${selected!.amount}**. Please review the payment and billing information below, then click **Order ticket** to confirm. I will ask for your confirmation before issuing.`,
+              timestamp: '',
+              motPaymentPrompt: { pnrOrRef: motState.pnrOrRef!, amount: selected!.amount, currency: selected!.currency },
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 500);
+          return;
+        }
+      }
+      if (motState.step === 'payment') {
+        const isOrderTicket = /\b(order\s+ticket|confirm|proceed)\b/i.test(lowerContent);
+        if (isOrderTicket) {
+          // Show order ticket successfully and ticketing status steps immediately (no confirm step)
+          setMotFlow(prev => ({ ...prev, [activeTab]: { ...motState, step: 'processing', ticketingSteps: [
+            { label: 'Ticketing in progress', status: 'done' },
+            { label: 'GDS Invoice Process', status: 'done' },
+            { label: 'Ticketing Successful', status: 'done' },
+          ] } }));
+          const ticketNumbers = ['176-2293847561', '176-2293847562'];
+          setTimeout(() => {
+            const successMsg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: '**Order ticket done successfully.**',
+              timestamp: '',
+              motTicketingStatus: { pnrOrRef: motState.pnrOrRef!, steps: [
+                { label: 'Ticketing in progress', status: 'done' },
+                { label: 'GDS Invoice Process', status: 'done' },
+                { label: 'Ticketing Successful', status: 'done' },
+              ] },
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), successMsg] }));
+          }, 300);
+          setTimeout(() => {
+            const ticketMsg: Message = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: `Ticket numbers issued for **${motState.pnrOrRef}**:`,
+              timestamp: '',
+              motTicketNumbers: { pnrOrRef: motState.pnrOrRef!, numbers: ticketNumbers },
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), ticketMsg] }));
+            setMotFlow(prev => ({ ...prev, [activeTab]: { ...prev[activeTab]!, step: 'ticket_numbers', ticketNumbers } }));
+          }, 600);
+          setTimeout(() => {
+            const emailPromptMsg: Message = {
+              id: (Date.now() + 2).toString(),
+              role: 'assistant',
+              content: 'Would you like to **send email confirmation** to the customer and subagent? Reply **send** or **send email** to compose and send, or **no** to skip.',
+              timestamp: '',
+              suggestions: [{ command: 'send', description: 'Compose and send email' }, { command: 'no', description: 'Skip email' }],
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), emailPromptMsg] }));
+            setMotFlow(prev => ({ ...prev, [activeTab]: { ...prev[activeTab]!, step: 'email_prompt' } }));
+          }, 1000);
+          return;
+        }
+      }
+      // Allow "send" / "send email" even if still in ticket_numbers or processing (user replied before email prompt appeared)
+      if ((motState.step === 'email_prompt' || motState.step === 'ticket_numbers' || motState.step === 'processing') && (/\b(send|yes|compose)\b/i.test(lowerContent.trim()) || /send\s*email|email\s*confirmation/i.test(lowerContent.trim()))) {
+        const to = 'ZAHRA SAHARA TRAVEL TOURS';
+        const subject = `Please issue ticket RLOC/${motState.pnrOrRef} SALIM/ZAINAB`;
+        const body = 'Tickets have been issued.\n\nSalim/Zainab – Your ticket numbers are 176-2293847561, 176-2293847562. Thank you for your booking.';
+        setMotFlow(prev => ({ ...prev, [activeTab]: { ...motState, step: 'email_compose' } }));
+        setTimeout(() => {
+          const msg: Message = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: 'Here is the composed email. Click **Send** to send to customer and subagent, or **Cancel** to discard.',
+            timestamp: '',
+            motEmailCompose: { to, cc: 'subagent@example.com', subject, body },
+          };
+          setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 400);
+        return;
+      }
+      if (motState.step === 'email_prompt') {
+        if (/^no$/i.test(lowerContent.trim())) {
+          setMotFlow(prev => ({ ...prev, [activeTab]: { ...motState, step: 'done' } }));
+          setTimeout(() => {
+            const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Email skipped. MOT flow complete.', timestamp: '' };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 400);
+          return;
+        }
+      }
+      if (motState.step === 'email_compose') {
+        const doSend = /^send$/i.test(lowerContent.trim()) || /\bsend\s*email\b|\bsend\b/i.test(lowerContent.trim());
+        if (doSend) {
+          setMotFlow(prev => ({ ...prev, [activeTab]: { ...motState, step: 'email_sent' } }));
+          setTimeout(() => {
+            const msg: Message = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: '**Email sent** to customer and subagent.',
+              timestamp: '',
+              motEmailSent: { to: 'ZAHRA SAHARA TRAVEL TOURS', subject: `Ticket confirmation ${motState.pnrOrRef}` },
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+            setMotFlow(prev => ({ ...prev, [activeTab]: { ...prev[activeTab]!, step: 'done' } }));
+          }, 400);
+          return;
+        }
+        const doCancel = /^cancel$/i.test(lowerContent.trim()) || /\bcancel\b/i.test(lowerContent.trim());
+        if (doCancel) {
+          setMotFlow(prev => ({ ...prev, [activeTab]: { ...motState, step: 'done' } }));
+          setTimeout(() => {
+            const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Email cancelled. MOT flow complete.', timestamp: '' };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+          }, 400);
+          return;
+        }
+      }
+    }
+
+    // When user says "send email" (or "send" for email) but we're not in MOT (e.g. they got ticket info from PNR view), still show email compose
+    const sendEmailStandalone = /\bsend\s*email\b|\bemail\s*confirmation\b/i.test(lowerContent.trim()) || /^send$/i.test(lowerContent.trim());
+    if (!motFlow[activeTab] && sendEmailStandalone) {
+      const pnrCtx = getPnrOrTripIdFromContext();
+      const pnrForEmail = currentTab?.pnr || (currentTab?.label?.match(/PNR:\s*(\S+)/i)?.[1]) || pnrCtx.pnr || TRIP_INFO_PNR;
+      const to = 'ZAHRA SAHARA TRAVEL TOURS';
+      const subject = `Please issue ticket RLOC/${pnrForEmail} SALIM/ZAINAB`;
+      const body = 'Tickets have been issued.\n\nSalim/Zainab – Your ticket numbers are 176-2293847561, 176-2293847562. Thank you for your booking.';
+      setMotFlow(prev => ({ ...prev, [activeTab]: { step: 'email_compose', pnrOrRef: pnrForEmail } }));
+      setTimeout(() => {
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Here is the composed email. Click **Send** to send to customer and subagent, or **Cancel** to discard.',
+          timestamp: '',
+          motEmailCompose: { to, cc: 'subagent@example.com', subject, body },
+        };
+        setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+      }, 400);
       return;
     }
 
@@ -1325,6 +1513,23 @@ export function Workspace({
         return;
     }
 
+    if (cmd === '/issue-mot' || cmd === '/mot') {
+        const pnrRef = getPnrOrTripIdFromContext().pnr;
+        const initial: MOTFlowState = { step: 'prices', pnrOrRef: pnrRef, ticketingSteps: [] };
+        setMotFlow(prev => ({ ...prev, [activeTab]: initial }));
+        setTimeout(() => {
+            const msg: Message = {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: `Opening **MOT** for ${pnrRef}. Here are the available prices. Select one to proceed with payment and billing.`,
+                timestamp: '',
+                motPriceOptions: sampleMOTPrices,
+            };
+            setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+        }, 500);
+        return;
+    }
+
     setTimeout(() => {
       let responseContent = '';
       let suggestions: CommandSuggestion[] = [];
@@ -1549,6 +1754,57 @@ export function Workspace({
               {message.hotelBookingConfirmation && (
                 <div className="pl-14 mt-4">
                   <HotelBookingConfirmationCard confirmation={message.hotelBookingConfirmation} />
+                </div>
+              )}
+
+              {/* MOT: Price options */}
+              {message.motPriceOptions && (
+                <div className="pl-14 mt-4">
+                  <MOTPriceCard
+                    pnrOrRef={getPnrOrTripIdFromContext().pnr}
+                    options={message.motPriceOptions}
+                    onSelect={(opt) => {
+                      const idx = message.motPriceOptions!.findIndex(o => o.id === opt.id);
+                      handleSend(idx >= 0 ? String(idx + 1) : opt.label, gdsState);
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* MOT: Payment & billing */}
+              {message.motPaymentPrompt && (
+                <div className="pl-14 mt-4">
+                  <MOTPaymentCard
+                    pnrOrRef={message.motPaymentPrompt.pnrOrRef}
+                    amount={message.motPaymentPrompt.amount}
+                    currency={message.motPaymentPrompt.currency}
+                    onOrderTicket={() => handleSend('Order ticket', gdsState)}
+                  />
+                </div>
+              )}
+
+              {/* MOT: Ticketing status */}
+              {message.motTicketingStatus && (
+                <div className="pl-14 mt-4">
+                  <MOTTicketingStatusCard pnrOrRef={message.motTicketingStatus.pnrOrRef} steps={message.motTicketingStatus.steps} />
+                </div>
+              )}
+
+              {/* MOT: Ticket numbers */}
+              {message.motTicketNumbers && (
+                <div className="pl-14 mt-4">
+                  <MOTTicketNumbersCard pnrOrRef={message.motTicketNumbers.pnrOrRef} numbers={message.motTicketNumbers.numbers} />
+                </div>
+              )}
+
+              {/* MOT: Email compose – Send / Cancel */}
+              {message.motEmailCompose && (
+                <div className="pl-14 mt-4">
+                  <MOTEmailComposeCard
+                    email={message.motEmailCompose}
+                    onSend={() => handleSend('send', gdsState)}
+                    onCancel={() => handleSend('cancel', gdsState)}
+                  />
                 </div>
               )}
 

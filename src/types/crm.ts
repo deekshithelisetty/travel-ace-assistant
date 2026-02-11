@@ -276,6 +276,37 @@ export interface AncillaryOption {
   detail?: string;
 }
 
+/** MOT (Manual Order Ticketing) – price option for user to select */
+export interface MOTPriceOption {
+  id: string;
+  label: string;
+  amount: string;
+  currency: string;
+  platingCarrier?: string;
+  bookingClass?: string;
+  fareBasis?: string;
+  isLowest?: boolean;
+}
+
+/** MOT flow state */
+export interface MOTFlowState {
+  step: 'prices' | 'payment' | 'confirm' | 'processing' | 'success' | 'ticket_numbers' | 'email_prompt' | 'email_compose' | 'email_sent' | 'done';
+  pnrOrRef?: string;
+  selectedPrice?: MOTPriceOption;
+  /** After confirm: show ticketing status steps */
+  ticketingSteps?: { label: string; status: 'pending' | 'progress' | 'done' }[];
+  ticketNumbers?: string[];
+  emailRecipients?: { to?: string; cc?: string };
+}
+
+/** MOT composed email for user to confirm send/cancel */
+export interface MOTEmailCompose {
+  to: string;
+  cc?: string;
+  subject: string;
+  body: string;
+}
+
 export interface Message {
   id: string;
   role: 'assistant' | 'user';
@@ -314,6 +345,18 @@ export interface Message {
   hotelPolicies?: HotelPolicies;
   /** After booking, show this confirmation */
   hotelBookingConfirmation?: HotelBookingConfirmation;
+  /** MOT: price options to select */
+  motPriceOptions?: MOTPriceOption[];
+  /** MOT: show payment/billing form (prompt or card) */
+  motPaymentPrompt?: { pnrOrRef: string; amount: string; currency: string };
+  /** MOT: ticketing status steps (in progress, successful) */
+  motTicketingStatus?: { pnrOrRef: string; steps: { label: string; status: 'pending' | 'progress' | 'done' }[] };
+  /** MOT: issued ticket numbers */
+  motTicketNumbers?: { pnrOrRef: string; numbers: string[] };
+  /** MOT: composed email for Send/Cancel confirmation */
+  motEmailCompose?: MOTEmailCompose;
+  /** MOT: email sent confirmation */
+  motEmailSent?: { to: string; subject: string };
 }
 
 export interface CommandSuggestion {

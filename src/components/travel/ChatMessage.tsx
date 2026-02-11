@@ -74,7 +74,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </ul>
           </div>
         )}
-        {message.itineraryData && <ItineraryCard pnr={message.itineraryData.pnr} ref={message.itineraryData.ref} segments={message.itineraryData.segments} />}
+        {message.itineraryData && <ItineraryCard pnr={message.itineraryData.pnr} bookingRef={message.itineraryData.ref} segments={message.itineraryData.segments} />}
         {message.invoiceData && <InvoiceCard data={message.invoiceData} />}
         {message.ccvStatusData && <CCVStatusCard status={message.ccvStatusData.status} highRisk={message.ccvStatusData.highRisk} proceedFulfillment={message.ccvStatusData.proceedFulfillment} identityCheckScore={message.ccvStatusData.identityCheckScore} validations={message.ccvStatusData.validations} />}
         {message.ccvSummaryData && <PayomoSummaryCard data={message.ccvSummaryData} />}
