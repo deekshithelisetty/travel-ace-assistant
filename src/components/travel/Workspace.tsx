@@ -347,6 +347,23 @@ export function Workspace({
     onShowRightPanel?.('intelligence');
   };
 
+  const handleInvoiceSendEmail = (data: InvoiceSummary) => {
+    const body = `Invoice #${data.invoiceNumber}\nDate: ${data.invoiceDate}\nRef: ${data.refNumber}\nPNR: ${data.pnr}\n${data.itinerarySummary ? `Trip: ${data.itinerarySummary}\n` : ''}Total: ${data.currency} ${data.totalDue}\nStatus: ${data.status}`;
+    const msg: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: 'Compose and send the invoice email to the customer. You can edit the fields below before sending.',
+      timestamp: '',
+      motEmailCompose: {
+        to: 'customer@example.com',
+        cc: 'subagent@example.com',
+        subject: `Invoice ${data.invoiceNumber} - PNR ${data.pnr}`,
+        body,
+      },
+    };
+    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+  };
+
   // Auto-scroll chat to bottom when messages or tab change
   useEffect(() => {
     const el = chatScrollRef.current;
@@ -1780,7 +1797,11 @@ export function Workspace({
 
           return (
             <div key={message.id}>
-              <ChatMessage message={message} onItineraryAddToTrip={message.itineraryData ? handleItineraryAddToTrip : undefined} />
+              <ChatMessage
+                message={message}
+                onItineraryAddToTrip={message.itineraryData ? handleItineraryAddToTrip : undefined}
+                onInvoiceSendEmail={message.invoiceData ? () => handleInvoiceSendEmail(message.invoiceData!) : undefined}
+              />
               
               {/* Show PNR Card after AI message – same width as AI bubble, same bg */}
               {message.pnrData && showPNRCard && (

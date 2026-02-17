@@ -11,6 +11,7 @@ import {
   Clock,
   ChevronRight,
   PlusCircle,
+  Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -84,7 +85,7 @@ export function ItineraryCard({
   );
 }
 
-export function InvoiceCard({ data }: { data: InvoiceSummary }) {
+export function InvoiceCard({ data, onSendEmail }: { data: InvoiceSummary; onSendEmail?: () => void }) {
   return (
     <div className={cn('mt-4 overflow-hidden rounded-xl border border-border bg-card/80 shadow-soft', segmentBg)}>
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-primary/5">
@@ -122,6 +123,21 @@ export function InvoiceCard({ data }: { data: InvoiceSummary }) {
           <span className="text-primary">{data.currency} {data.totalDue}</span>
         </div>
       </div>
+      {onSendEmail && (
+        <div className="px-4 pb-4 pt-2 border-t border-border">
+          <button
+            type="button"
+            onClick={onSendEmail}
+            className={cn(
+              'w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium',
+              'bg-primary text-primary-foreground hover:opacity-90 transition-opacity'
+            )}
+          >
+            <Mail className="h-4 w-4" />
+            Send email to customer
+          </button>
+        </div>
+      )}
     </div>
   );
 }

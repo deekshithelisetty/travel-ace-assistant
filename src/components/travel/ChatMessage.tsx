@@ -18,9 +18,10 @@ import {
 interface ChatMessageProps {
   message: Message;
   onItineraryAddToTrip?: () => void;
+  onInvoiceSendEmail?: () => void;
 }
 
-export function ChatMessage({ message, onItineraryAddToTrip }: ChatMessageProps) {
+export function ChatMessage({ message, onItineraryAddToTrip, onInvoiceSendEmail }: ChatMessageProps) {
   const isAssistant = message.role === 'assistant';
 
   return (
@@ -83,7 +84,12 @@ export function ChatMessage({ message, onItineraryAddToTrip }: ChatMessageProps)
             onAddToTrip={onItineraryAddToTrip}
           />
         )}
-        {message.invoiceData && <InvoiceCard data={message.invoiceData} />}
+        {message.invoiceData && (
+          <InvoiceCard
+            data={message.invoiceData}
+            onSendEmail={onInvoiceSendEmail}
+          />
+        )}
         {message.ccvStatusData && <CCVStatusCard status={message.ccvStatusData.status} highRisk={message.ccvStatusData.highRisk} proceedFulfillment={message.ccvStatusData.proceedFulfillment} identityCheckScore={message.ccvStatusData.identityCheckScore} validations={message.ccvStatusData.validations} />}
         {message.ccvSummaryData && <PayomoSummaryCard data={message.ccvSummaryData} />}
         {message.travelersData && message.travelersData.length > 0 && <TravelersCard travelers={message.travelersData} />}
