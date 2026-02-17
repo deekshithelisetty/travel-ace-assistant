@@ -35,6 +35,22 @@ export interface ActivityItem {
   pnrActivity?: PNRActivityEvent[];
   /** Pipeline steps: which are completed, which failed (for manual intervention cards) */
   flowSteps?: FlowStep[];
+  /** For fraud indication: email cases – sender address (checked against trusted list) */
+  fromEmail?: string;
+  /** For fraud indication: system-rejected (CCV, CCD, ticketing, reissue) – journey start date (e.g. "15 Feb 2026" or ISO) */
+  journeyDate?: string;
+  /** For fraud indication: when the booking was made (e.g. "14 Feb 2026" or ISO) – advance purchase < 3 days = immediate travel */
+  bookedAt?: string;
+  /** For fraud indication: origin airport/city code (e.g. SGN, HYD, JFK) – outside USA = potential fraud */
+  origin?: string;
+  /** For fraud indication: destination airport/city code */
+  destination?: string;
+}
+
+/** Result of fraud check for an activity card */
+export interface PotentialFraud {
+  show: boolean;
+  reason?: string;
 }
 
 /** Payomo/CCV fraud and identity verification summary for a PNR */
@@ -120,7 +136,7 @@ export interface FlightOption {
 }
 
 export interface FlightSearchState {
-  step: 'origin' | 'destination' | 'dates' | 'travelers' | 'results' | 'brand_selection' | 'details' | 'payment' | 'confirmation' | 'booked';
+  step: 'origin' | 'destination' | 'dates' | 'travelers' | 'results' | 'brand_selection' | 'details' | 'ancillary' | 'payment' | 'confirmation' | 'processing' | 'booked';
   origin?: string;
   destination?: string;
   departureDate?: string;
@@ -133,6 +149,8 @@ export interface FlightSearchState {
   results: FlightOption[];
   selectedFlight?: FlightOption;
   selectedBrand?: string;
+  /** Selected ancillary IDs and price (for total after ancillary step) */
+  selectedAncillaries?: { id: string; name: string; price: number }[];
   travelerDetails?: {
     name: string;
     email: string;

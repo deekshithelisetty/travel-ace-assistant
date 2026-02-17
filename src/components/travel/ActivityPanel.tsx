@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Radio, SlidersHorizontal, Mail, Plane, Users, MessageCircle, FolderOpen, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RefreshCw, PenLine, AlertTriangle, CreditCard, Bot, Send, Mic, Maximize2, Minimize2, Wallet, Ticket, Package, Receipt, Hourglass, Sparkles } from 'lucide-react';
-import { ActivityItem, ActivityType, WorkedCase, FlowStep, ActivityStatus } from '@/types/crm';
+import { ActivityItem, ActivityType, WorkedCase, FlowStep, ActivityStatus, PotentialFraud } from '@/types/crm';
 import { cn } from '@/lib/utils';
 import { SpacesPanel } from './SpacesPanel';
 import { Button } from '@/components/ui/button';
@@ -227,6 +227,67 @@ function PillHeader({
   );
 }
 
+/** Trusted customer emails (fraud: email from address not in this list) */
+const TRUSTED_CUSTOMER_EMAILS = new Set(
+  ['customer@example.com', 'info@ziyarahinternationaltravels.com', 'bookings@trustedagency.com'].map((e) => e.toLowerCase())
+);
+
+/** USA airport/city codes – origin outside this set = potential fraud (outside USA originating) */
+const USA_ORIGIN_CODES = new Set([
+  'SFO', 'LAX', 'JFK', 'ORD', 'DFW', 'ATL', 'MIA', 'SEA', 'DEN', 'BOS', 'LAS', 'MCO', 'EWR', 'PHX',
+  'IAH', 'SGF', 'AZO', 'US', 'USA',
+]);
+
+function getPotentialFraud(item: ActivityItem): PotentialFraud {
+  // 1. Email: from email not in trusted list
+  if (item.type === 'email' && item.fromEmail) {
+    const email = item.fromEmail.trim().toLowerCase();
+    if (!TRUSTED_CUSTOMER_EMAILS.has(email)) {
+      return { show: true, reason: 'From email not in trusted customers list' };
+    }
+  }
+
+  // 2. System rejected (CCV, CCD, ticketing, reissue): advance purchase < 3 days (immediate travel)
+  const systemRejectedTypes: ActivityType[] = ['ccv_rejected', 'ccd', 'ticketing_failed', 'reissue_failed'];
+  if (systemRejectedTypes.includes(item.type) && item.journeyDate && item.bookedAt) {
+    const journey = new Date(item.journeyDate).getTime();
+    const booked = new Date(item.bookedAt).getTime();
+    if (!Number.isNaN(journey) && !Number.isNaN(booked)) {
+      const daysAdvance = (journey - booked) / (24 * 60 * 60 * 1000);
+      if (daysAdvance < 3) return { show: true, reason: 'Immediate travel (advance purchase < 3 days)' };
+    }
+  }
+  // Also use ccvInfo.journey if present for ccv_rejected
+  if (item.type === 'ccv_rejected' && item.ccvInfo?.journey?.date && item.bookedAt) {
+    const journey = new Date(item.ccvInfo.journey.date).getTime();
+    const booked = new Date(item.bookedAt).getTime();
+    if (!Number.isNaN(journey) && !Number.isNaN(booked)) {
+      const daysAdvance = (journey - booked) / (24 * 60 * 60 * 1000);
+      if (daysAdvance < 3) return { show: true, reason: 'Immediate travel (advance purchase < 3 days)' };
+    }
+  }
+
+  // 3. Outside USA originating booking (e.g. SGN–HKG, HYD–AUS)
+  if (item.origin) {
+    const originUpper = item.origin.trim().toUpperCase();
+    if (originUpper.length >= 2 && !USA_ORIGIN_CODES.has(originUpper)) {
+      return { show: true, reason: 'Booking originating outside USA' };
+    }
+  }
+
+  return { show: false };
+}
+
+function FraudAlertBanner({ reason }: { reason?: string }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-t-lg bg-destructive/15 border-b border-destructive/30 text-destructive">
+      <AlertTriangle className="h-4 w-4 shrink-0" />
+      <span className="text-xs font-semibold">Potential fraud</span>
+      {reason && <span className="text-[11px] opacity-90">– {reason}</span>}
+    </div>
+  );
+}
+
 const isActionable = (item: ActivityItem) =>
   item.status === 'new' || item.status === 'working' || !item.status;
 
@@ -261,14 +322,17 @@ function ActivityItemLayout({
 
   // —— PNR: Timeline block (title, subtitle, steps, status chip, time; actions as links) ——
   if (item.type === 'pnr') {
+    const fraud = getPotentialFraud(item);
     return (
       <div
         role="button"
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("rounded-lg border border-border bg-card p-3 space-y-2 cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className={cn("rounded-lg border border-border bg-card overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
       >
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
+        <div className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
@@ -286,20 +350,24 @@ function ActivityItemLayout({
             <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Details</button>
           </div>
         )}
+        </div>
       </div>
     );
   }
 
   // —— Email: Message block (title, quote, status, time; Send Reply link) ——
   if (item.type === 'email') {
+    const fraud = getPotentialFraud(item);
     return (
       <div
         role="button"
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("rounded-lg border border-border bg-card/50 p-3 space-y-2 cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className={cn("rounded-lg border border-border bg-card/50 overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
       >
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
+        <div className="p-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -313,20 +381,24 @@ function ActivityItemLayout({
             <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Send Reply
           </button>
         )}
+        </div>
       </div>
     );
   }
 
   // —— Queue: Banner strip (single line, icon + title + time + Take action link) ——
   if (item.type === 'queue') {
+    const fraud = getPotentialFraud(item);
     return (
       <div
         role="button"
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className={cn("rounded-lg border border-border bg-card overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
       >
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
+        <div className="flex items-center gap-3 px-3 py-2.5">
         <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-foreground">{item.title}</span>
@@ -337,14 +409,17 @@ function ActivityItemLayout({
           <span className="text-[11px] text-muted-foreground">{timeStr}</span>
           {isItemActionable(item) && <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Take action</button>}
         </div>
+        </div>
       </div>
     );
   }
 
   // —— CCV Rejected: Inline alert row (icon, title, subtitle, flow steps, status, Review link) ——
   if (item.type === 'ccv_rejected') {
+    const fraud = getPotentialFraud(item);
     return (
       <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
@@ -380,8 +455,10 @@ function ActivityItemLayout({
 
   // —— CCD: Table-like row (columns: icon | title | badge | status | link) ——
   if (item.type === 'ccd') {
+    const fraud = getPotentialFraud(item);
     return (
       <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
@@ -409,8 +486,10 @@ function ActivityItemLayout({
 
   // —— Ticketing failed: Expandable row (collapsed = one line; expanded = flow steps + link) ——
   if (item.type === 'ticketing_failed') {
+    const fraud = getPotentialFraud(item);
     return (
       <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
@@ -447,8 +526,10 @@ function ActivityItemLayout({
 
   // —— Ancillary failed: Chip row (type chip + title + subtitle; steps; Fix link) ——
   if (item.type === 'ancillary_failed') {
+    const fraud = getPotentialFraud(item);
     return (
       <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
@@ -478,13 +559,16 @@ function ActivityItemLayout({
 
   // —— Reissue failed: Minimal strip (title left, Review link right) ——
   if (item.type === 'reissue_failed') {
+    const fraud = getPotentialFraud(item);
     return (
+      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
       <div
         role="button"
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-secondary/30 transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
           <RefreshCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -496,13 +580,16 @@ function ActivityItemLayout({
           {isItemActionable(item) && <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Review</button>}
         </div>
       </div>
+      </div>
     );
   }
 
   // —— Refund failed: Inline alert (same structure as CCV) ——
   if (item.type === 'refund_failed') {
+    const fraud = getPotentialFraud(item);
     return (
       <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+        {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}

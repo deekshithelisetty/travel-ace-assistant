@@ -303,6 +303,50 @@ export function Workspace({
   const sentQuickActionForRef = useRef<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
+  const parseAncillaryPrice = (s: string | undefined): number => {
+    if (!s) return 0;
+    const n = parseFloat(s.replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+
+  const handleFlightAncillaryContinue = (selectedIds: string[]) => {
+    const items = mockAncillaries.filter(a => selectedIds.includes(a.id)).map(a => ({
+      id: a.id,
+      name: a.name,
+      price: parseAncillaryPrice(a.price),
+    }));
+    const totalTravelers = (flightSearchFlow[activeTab]?.travelers?.adults || 1) + (flightSearchFlow[activeTab]?.travelers?.children || 0) + (flightSearchFlow[activeTab]?.travelers?.infants || 0);
+    const flightState = flightSearchFlow[activeTab];
+    const flightTotal = (flightState?.selectedFlight?.price || 0) * totalTravelers;
+    const ancTotal = items.reduce((s, a) => s + a.price, 0);
+    const total = flightTotal + ancTotal;
+    setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState!, selectedAncillaries: items, step: 'confirmation' } }));
+    const msg: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: `**Booking summary**\n\nFlight: **$${flightTotal}** (${totalTravelers} traveler${totalTravelers > 1 ? 's' : ''})\nAdd-ons: **$${ancTotal}**${items.length > 0 ? ` — ${items.map(i => i.name).join(', ')}` : ''}\n\n**Total: $${total}**\n\nReply **confirm** to proceed to payment.`,
+      timestamp: '',
+      suggestions: [{ command: 'confirm', description: 'Proceed to payment' }, { command: 'cancel', description: 'Cancel booking' }],
+    };
+    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+  };
+
+  const handleItineraryAddToTrip = () => {
+    setMessagesPerTab(prev => ({
+      ...prev,
+      [activeTab]: [
+        ...(prev[activeTab] || []),
+        {
+          id: Date.now().toString(),
+          role: 'assistant' as const,
+          content: '✅ **Itinerary added to this trip.** This PNR is now the active itinerary for the current case.',
+          timestamp: '',
+        },
+      ],
+    }));
+    onShowRightPanel?.('intelligence');
+  };
+
   // Auto-scroll chat to bottom when messages or tab change
   useEffect(() => {
     const el = chatScrollRef.current;
@@ -532,7 +576,7 @@ export function Workspace({
       return;
     }
 
-    const showItinerary = /\b(itinerary|itin|flights?|segments?|route)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?(trip\s+)?itinerary/i.test(lowerContent) || /(what'?s?|give me|want to see|get)\s+(the\s+)?(trip\s+)?itinerary/i.test(lowerContent);
+    const showItinerary = /\b(itinerary|itin|flights?|segments?|route)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?(trip\s+)?itinerary/i.test(lowerContent) || /(what'?s?|give me|want to see|get|provide)\s+(me\s+)?(the\s+)?(trip\s+)?itinerary/i.test(lowerContent);
     const showInvoice = /\b(invoice|inv)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?invoice/i.test(lowerContent) || /what'?s?\s+(the\s+)?invoice/i.test(lowerContent);
     const showCcv = /\b(ccv|cvv|payment\s+status|card\s+status|payomo|verification)\b/i.test(lowerContent) || /show\s+ccv\s+status/i.test(lowerContent) || /what'?s?\s+(the\s+)?ccv/i.test(lowerContent);
     const showTravelers = /\b(travelers?|passengers?|pax)\b/i.test(lowerContent) || /show\s+(me\s+)?(the\s+)?travelers/i.test(lowerContent);
@@ -578,7 +622,7 @@ export function Workspace({
           role: 'assistant',
           content: summary,
           timestamp: '',
-          ...(showItinerary && { itineraryData: { pnr: TRIP_INFO_PNR, ref: TRIP_INFO_REF, segments: mockItinerarySegments } }),
+          ...(showItinerary && { itineraryData: { pnr: pnrForResponse, ref: TRIP_INFO_REF, segments: mockItinerarySegments } }),
           ...(showInvoice && { invoiceData: mockInvoice }),
           ...(showCcv && { ccvStatusData: { status: 'APPROVED', highRisk: false, proceedFulfillment: true, identityCheckScore: 65, validations: { phone: { valid: true, value: '', match: true }, email: { valid: true, value: '', match: true }, address: { valid: false, match: false } } } }),
           ...(showTravelers && { travelersData: mockTravelers }),
@@ -1154,44 +1198,21 @@ export function Workspace({
            }
            
            if (selected) {
-               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, selectedFlight: selected, step: 'brand_selection' } }));
-               
+               const totalTravelers = (flightState.travelers?.adults || 1) + (flightState.travelers?.children || 0) + (flightState.travelers?.infants || 0);
+               const flightTotal = selected.price * totalTravelers;
+               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, selectedFlight: selected, step: 'details', travelerDetails: [], currentTravelerIndex: 1 } }));
                setTimeout(() => {
-                    const brands = ['Basic Economy', 'Main Cabin', 'Comfort+'];
-                    const msg: Message = { 
-                        id: Date.now().toString(), 
-                        role: 'assistant', 
-                        content: `You selected **${selected.airline} ${selected.flightNumber}**.\n\nPlease select a fare brand:\n\n1. **Basic Economy** ($${selected.price})\n2. **Main Cabin** ($${selected.price + 30})\n3. **Comfort+** ($${selected.price + 80})`, 
+                    const msg: Message = {
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: `You selected **${selected.airline} ${selected.flightNumber}** — **$${selected.price}** per traveler (${totalTravelers} traveler${totalTravelers > 1 ? 's' : ''}, flight total **$${flightTotal}**).\n\nPlease provide **Traveler 1** details: **Name**, **Email**, **Phone**. Optional add-ons are shown below.`,
                         timestamp: '',
-                        suggestions: brands.map(b => ({ command: b, description: 'Select fare' }))
+                        ancillaryOptions: { pnr: 'booking', items: mockAncillaries },
                     };
                     setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
                }, 500);
                return;
            }
-      }
-
-      if (flightState.step === 'brand_selection') {
-           setFlightSearchFlow(prev => ({ 
-               ...prev, 
-               [activeTab]: { 
-                   ...flightState, 
-                   selectedBrand: content, 
-                   step: 'details',
-                   travelerDetails: [], 
-                   currentTravelerIndex: 1
-               } 
-           }));
-           setTimeout(() => {
-                const msg: Message = { 
-                    id: Date.now().toString(), 
-                    role: 'assistant', 
-                    content: `Brand **${content}** selected.\n\nPlease provide details for **Traveler 1** (Name, Email, Phone).`, 
-                    timestamp: '' 
-                };
-                setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
-           }, 500);
-           return;
       }
 
       if (flightState.step === 'details') {
@@ -1226,65 +1247,129 @@ export function Workspace({
            } else {
                setFlightSearchFlow(prev => ({
                    ...prev,
-                   [activeTab]: { ...flightState, travelerDetails: updatedDetails, step: 'payment' }
+                   [activeTab]: { ...flightState, travelerDetails: updatedDetails, step: 'ancillary' }
                }));
                setTimeout(() => {
-                    const totalCost = (flightState.selectedFlight?.price || 0) * totalTravelers;
-                    const msg: Message = { 
-                        id: Date.now().toString(), 
-                        role: 'assistant', 
-                        content: `All traveler info saved.\n\nPlease enter card details to proceed with payment of **$${totalCost}** for ${totalTravelers} travelers.`, 
-                        timestamp: '' 
+                    const msg: Message = {
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: 'All traveler info saved. Select any **add-ons** below, or click **Continue** to proceed to payment.',
+                        timestamp: '',
+                        ancillaryOptions: { pnr: 'booking', items: mockAncillaries },
                     };
                     setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
                }, 500);
+           }
+           return;
+      }
+
+      if (flightState.step === 'ancillary') {
+           const lower = content.trim().toLowerCase();
+           if (/^(skip|continue|done|no|none)$/.test(lower) || /^(no\s+add-ons?|skip\s+ancillar)/i.test(lower)) {
+             const selectedAncillaries: { id: string; name: string; price: number }[] = [];
+             const totalTravelers = (flightState.travelers?.adults || 1) + (flightState.travelers?.children || 0) + (flightState.travelers?.infants || 0);
+             const flightTotal = (flightState.selectedFlight?.price || 0) * totalTravelers;
+             const ancTotal = 0;
+             const total = flightTotal + ancTotal;
+             setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, selectedAncillaries, step: 'confirmation' } }));
+             setTimeout(() => {
+               const msg: Message = {
+                 id: Date.now().toString(),
+                 role: 'assistant',
+                 content: `**Booking summary**\n\nFlight: **$${flightTotal}** (${totalTravelers} traveler${totalTravelers > 1 ? 's' : ''})\nAdd-ons: $${ancTotal}\n\n**Total: $${total}**\n\nReply **confirm** to proceed to payment.`,
+                 timestamp: '',
+                 suggestions: [{ command: 'confirm', description: 'Proceed to payment' }, { command: 'cancel', description: 'Cancel booking' }],
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+             }, 400);
+             return;
            }
            return;
       }
 
       if (flightState.step === 'payment') {
-           setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'confirmation' } }));
-           setTimeout(() => {
-                const totalTravelers = (flightState.travelers?.adults || 1) + (flightState.travelers?.children || 0) + (flightState.travelers?.infants || 0);
-                const total = (flightState.selectedFlight?.price || 0) * totalTravelers;
-                const travelerNames = flightState.travelerDetails?.map(t => t.name).join(', ') || 'Unknown';
-                const msg: Message = { 
-                    id: Date.now().toString(), 
-                    role: 'assistant', 
-                    content: `**Confirm Booking**\n\nFlight: ${flightState.selectedFlight?.airline} ${flightState.selectedFlight?.flightNumber}\nRoute: ${flightState.selectedFlight?.origin} -> ${flightState.selectedFlight?.destination}\nTravelers (${totalTravelers}): ${travelerNames}\nTotal: **$${total}**\n\nType **"confirm"** to book or "cancel" to abort.`, 
-                    timestamp: '' 
-                };
-                setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
-           }, 500);
+           const parsed = parseCardDetails(content);
+           if (parsed.valid) {
+             setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'processing' } }));
+             setTimeout(() => {
+               const processingMsg: Message = {
+                 id: Date.now().toString(),
+                 role: 'assistant',
+                 content: '🔄 **Processing payment...**\n\nCharging card ending ' + (parsed.last4 || '****') + '...\n\nIssuing ticket...',
+                 timestamp: '',
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), processingMsg] }));
+             }, 300);
+             setTimeout(() => {
+               const ticket1 = '176-' + String(Math.floor(1000000000 + Math.random() * 9000000000));
+               const ticket2 = flightState.travelerDetails && flightState.travelerDetails.length > 1 ? '176-' + String(Math.floor(1000000000 + Math.random() * 9000000000)) : null;
+               const pnr = 'FLT' + Math.floor(Math.random() * 10000);
+               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'booked' } }));
+               const ticketNumbers = ticket2 ? [ticket1, ticket2] : [ticket1];
+               const ticketMsg: Message = {
+                 id: (Date.now() + 1).toString(),
+                 role: 'assistant',
+                 content: `✅ **Ticket issued successfully.**\n\nPNR: **${pnr}**\n\n**Ticket number(s):**\n${ticketNumbers.map(t => `· \`${t}\``).join('\n')}\n\nWould you like to send a confirmation email to the customer?`,
+                 timestamp: '',
+                 ticketNumbers,
+                 suggestions: [{ command: 'Send confirmation email', description: 'Email itinerary to customer' }],
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), ticketMsg] }));
+             }, 2500);
+           } else {
+             setTimeout(() => {
+               const msg: Message = {
+                 id: Date.now().toString(),
+                 role: 'assistant',
+                 content: 'Please enter valid card details: **Card number**, **Expiry (MM/YY)**, **Name**, **CVV**. Example: 4111111111111111, 12/28, John Doe, 123',
+                 timestamp: '',
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+             }, 400);
+           }
            return;
       }
 
       if (flightState.step === 'confirmation') {
            if (content.toLowerCase().includes('confirm')) {
-               const pnr = 'FLT' + Math.floor(Math.random() * 10000);
-               setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'booked' } }));
-               setTimeout(() => {
-                    const msg: Message = { 
-                        id: Date.now().toString(), 
-                        role: 'assistant', 
-                        content: `✅ **Booking Confirmed!**\n\nPNR: **${pnr}**\nTicket: 176-${Math.floor(Math.random() * 1000000000)}\n\nThank you for booking with Travel Ace.`, 
-                        timestamp: '',
-                        ticketNumbers: [`176-${Math.floor(Math.random() * 1000000000)}`]
-                    };
-                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
-               }, 1000);
+             setFlightSearchFlow(prev => ({ ...prev, [activeTab]: { ...flightState, step: 'payment' } }));
+             setTimeout(() => {
+               const totalTravelers = (flightState.travelers?.adults || 1) + (flightState.travelers?.children || 0) + (flightState.travelers?.infants || 0);
+               const flightTotal = (flightState.selectedFlight?.price || 0) * totalTravelers;
+               const ancTotal = (flightState.selectedAncillaries || []).reduce((s, a) => s + a.price, 0);
+               const total = flightTotal + ancTotal;
+               const msg: Message = {
+                 id: Date.now().toString(),
+                 role: 'assistant',
+                 content: `Please enter **card details** to pay **$${total}**.\n\nFormat: Card number, Expiry (MM/YY), Cardholder name, CVV.\nExample: 4111111111111111, 12/28, John Doe, 123`,
+                 timestamp: '',
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+             }, 500);
            } else {
-               setFlightSearchFlow(prev => {
-                   const next = { ...prev };
-                   delete next[activeTab]; 
-                   return next;
-               });
-               setTimeout(() => {
-                    const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Booking cancelled.', timestamp: '' };
-                    setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
-               }, 500);
+             setFlightSearchFlow(prev => { const next = { ...prev }; delete next[activeTab]; return next; });
+             setTimeout(() => {
+               const msg: Message = { id: Date.now().toString(), role: 'assistant', content: 'Booking cancelled.', timestamp: '' };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+             }, 500);
            }
            return;
+      }
+
+      if (flightState.step === 'booked') {
+           if (/send\s+confirmation\s+email|send\s+email|confirmation\s+email/i.test(content.trim())) {
+             setFlightSearchFlow(prev => { const next = { ...prev }; delete next[activeTab]; return next; });
+             setTimeout(() => {
+               const msg: Message = {
+                 id: Date.now().toString(),
+                 role: 'assistant',
+                 content: '✅ **Email has been sent to the customer.**\n\nConfirmation and itinerary were sent to the traveler\'s email address.',
+                 timestamp: '',
+               };
+               setMessagesPerTab(prev => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), msg] }));
+             }, 500);
+             return;
+           }
       }
     }
 
@@ -1695,7 +1780,7 @@ export function Workspace({
 
           return (
             <div key={message.id}>
-              <ChatMessage message={message} />
+              <ChatMessage message={message} onItineraryAddToTrip={message.itineraryData ? handleItineraryAddToTrip : undefined} />
               
               {/* Show PNR Card after AI message – same width as AI bubble, same bg */}
               {message.pnrData && showPNRCard && (
@@ -1808,7 +1893,7 @@ export function Workspace({
                 </div>
               )}
 
-              {/* Show Ancillaries – select one or more, then Add to PNR */}
+              {/* Show Ancillaries – select one or more, then Add to PNR; or Continue (flight booking) */}
               {message.ancillaryOptions && (
                 <div className="pl-14 mt-4">
                   <AncillaryOptionsCard
@@ -1825,6 +1910,8 @@ export function Workspace({
                       };
                       setMessagesPerTab((prev) => ({ ...prev, [activeTab]: [...(prev[activeTab] || []), confirmMsg] }));
                     }}
+                    continueMode={flightSearchFlow[activeTab]?.step === 'ancillary'}
+                    onContinue={flightSearchFlow[activeTab]?.step === 'ancillary' ? handleFlightAncillaryContinue : undefined}
                   />
                 </div>
               )}

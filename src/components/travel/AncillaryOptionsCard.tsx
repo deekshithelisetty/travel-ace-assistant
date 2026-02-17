@@ -7,6 +7,9 @@ interface AncillaryOptionsCardProps {
   pnr: string;
   items: AncillaryOption[];
   onAddToPnr: (selectedIds: string[]) => void;
+  /** When set, show "Continue" button (for flight booking flow); calls onContinue(selectedIds) and button is always enabled */
+  continueMode?: boolean;
+  onContinue?: (selectedIds: string[]) => void;
 }
 
 const typeLabel: Record<AncillaryOption['type'], string> = {
@@ -18,7 +21,7 @@ const typeLabel: Record<AncillaryOption['type'], string> = {
   other: 'Other',
 };
 
-export function AncillaryOptionsCard({ pnr, items, onAddToPnr }: AncillaryOptionsCardProps) {
+export function AncillaryOptionsCard({ pnr, items, onAddToPnr, continueMode, onContinue }: AncillaryOptionsCardProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -32,10 +35,17 @@ export function AncillaryOptionsCard({ pnr, items, onAddToPnr }: AncillaryOption
 
   const handleAddToPnr = () => {
     const ids = Array.from(selectedIds);
+    if (continueMode && onContinue) {
+      onContinue(ids);
+      return;
+    }
     if (ids.length === 0) return;
     onAddToPnr(ids);
     setSelectedIds(new Set());
   };
+
+  const isContinue = continueMode && onContinue;
+  const buttonEnabled = isContinue || selectedIds.size > 0;
 
   return (
     <div className="w-full max-w-md bg-card border border-border rounded-xl overflow-hidden shadow-sm mt-2">
@@ -81,16 +91,22 @@ export function AncillaryOptionsCard({ pnr, items, onAddToPnr }: AncillaryOption
         <button
           type="button"
           onClick={handleAddToPnr}
-          disabled={selectedIds.size === 0}
+          disabled={!buttonEnabled}
           className={cn(
             'w-full py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors',
-            selectedIds.size > 0
+            buttonEnabled
               ? 'bg-primary text-primary-foreground hover:opacity-90'
               : 'bg-muted text-muted-foreground cursor-not-allowed'
           )}
         >
-          <Plus className="h-4 w-4" />
-          Add {selectedIds.size > 0 ? `(${selectedIds.size})` : ''} to PNR
+          {isContinue ? (
+            <>Continue {selectedIds.size > 0 ? `(${selectedIds.size} selected)` : '(Skip add-ons)'}</>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              Add {selectedIds.size > 0 ? `(${selectedIds.size})` : ''} to PNR
+            </>
+          )}
         </button>
       </div>
     </div>

@@ -58,6 +58,8 @@ const sampleActivities: ActivityItem[] = [
     caseId: 'CV1001511838',
     ccvInfo: sampleCCVInfo,
     pnrActivity: sampleCCVActivity,
+    bookedAt: '2026-02-14',
+    journeyDate: '2026-02-15',
     flowSteps: [
       { key: 'booking', label: 'Booking', status: 'completed' },
       { key: 'ccv', label: 'Credit card verification', status: 'failed' },
@@ -90,6 +92,8 @@ const sampleActivities: ActivityItem[] = [
     badge: 'PNR:EF34GH',
     isNew: true,
     status: 'new',
+    origin: 'SGN',
+    destination: 'HKG',
     flowSteps: [
       { key: 'booking', label: 'Booking', status: 'completed' },
       { key: 'ccv', label: 'Credit card verification', status: 'completed' },
@@ -140,6 +144,17 @@ const sampleActivities: ActivityItem[] = [
       { key: 'booking', label: 'Booking', status: 'completed' },
       { key: 'refund', label: 'Refund', status: 'failed' },
     ],
+  },
+  {
+    id: 'email1',
+    type: 'email',
+    title: 'Urgent: change travel dates',
+    subtitle: 'Please move my flight to next week',
+    timestamp: 'JUST NOW',
+    badge: 'Email',
+    isNew: true,
+    status: 'new',
+    fromEmail: 'unknown-sender@external-domain.com',
   },
   {
     id: '1',

@@ -10,6 +10,7 @@ import {
   XCircle,
   Clock,
   ChevronRight,
+  PlusCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -26,10 +27,12 @@ export function ItineraryCard({
   pnr,
   bookingRef,
   segments,
+  onAddToTrip,
 }: {
   pnr: string;
   bookingRef: string;
   segments: ItinerarySegment[];
+  onAddToTrip?: () => void;
 }) {
   return (
     <div className={cn('mt-4 overflow-hidden rounded-xl border border-border bg-card/80 shadow-soft', segmentBg)}>
@@ -61,6 +64,21 @@ export function ItineraryCard({
             </div>
           </div>
         ))}
+        {onAddToTrip && (
+          <div className="pt-3 border-t border-border">
+            <button
+              type="button"
+              onClick={onAddToTrip}
+              className={cn(
+                'w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium',
+                'bg-primary text-primary-foreground hover:opacity-90 transition-opacity'
+              )}
+            >
+              <PlusCircle className="h-4 w-4" />
+              Add to trip
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

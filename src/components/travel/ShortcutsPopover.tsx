@@ -11,7 +11,6 @@ export const slashCommands: CommandSuggestion[] = [
   { command: '/refund', description: 'Process refund request' },
   { command: '/cancel', description: 'Cancel booking' },
   { command: '/close-case', description: 'Finalize and notify traveler' },
-  { command: '/itinerary', description: 'View full itinerary' },
   { command: '/sync', description: 'Sync PNR with GDS' },
 ];
 
