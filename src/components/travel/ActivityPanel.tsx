@@ -67,6 +67,46 @@ interface ActivityPanelProps {
 
 type ViewMode = 'activity' | 'spaces';
 
+/** Emoji for new card header by activity type */
+const getActivityEmoji = (type: ActivityType) => {
+  switch (type) {
+    case 'pnr': return '🎉';
+    case 'email': return '💬';
+    case 'queue': return '⏳';
+    case 'ccv_rejected': return '⚠️';
+    case 'ccd': return '⏳';
+    case 'ticketing_failed': return '⚠️';
+    case 'ancillary_failed': return '⚠️';
+    case 'reissue_failed': return '🔄';
+    case 'refund_failed': return '⚠️';
+    default: return '📌';
+  }
+};
+
+/** Small planet/sphere icon for card header */
+function PlanetIcon({ className }: { className?: string }) {
+  return (
+    <div className={cn('rounded-full bg-gradient-to-br from-violet-500/80 to-indigo-600/80 flex items-center justify-center shrink-0', className)}>
+      <span className="w-1.5 h-1.5 rounded-full bg-white/90" />
+    </div>
+  );
+}
+
+/** Right-aligned circular light-purple icon with white glyph (progress ring optional) */
+function CardRightIcon({ icon, progress = 0 }: { icon: React.ReactNode; progress?: number }) {
+  return (
+    <div className="relative flex items-center justify-center w-9 h-9 shrink-0 rounded-full bg-violet-400/90 text-white">
+      {progress > 0 && progress < 1 && (
+        <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
+          <circle cx="18" cy="18" r="16" fill="none" stroke="white" strokeWidth="2" strokeDasharray={`${progress * 100} 100`} strokeLinecap="round" />
+        </svg>
+      )}
+      <span className="relative flex items-center justify-center [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+    </div>
+  );
+}
+
 const getBadgeStyles = (type: ActivityType) => {
   switch (type) {
     case 'pnr':
@@ -181,22 +221,81 @@ const getLeftBorderClass = (type: ActivityType) => {
 };
 
 /** Vertical flow steps: colored icon on left, then status label, then optional timestamp */
-function FlowTimeline({ steps }: { steps: FlowStep[] }) {
+function FlowTimeline({ steps, dark }: { steps: FlowStep[]; dark?: boolean }) {
+  const textCl = dark ? 'text-white' : 'text-foreground';
+  const mutedCl = dark ? 'text-slate-400' : 'text-muted-foreground';
   return (
     <div className="mt-3 space-y-2.5">
-      {steps.map((step) => (
-        <div key={step.key} className="flex items-center gap-2">
-          {step.status === 'completed' && <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />}
-          {step.status === 'failed' && <X className="h-3.5 w-3.5 text-destructive shrink-0" />}
-          {step.status === 'pending' && <Hourglass className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-          <span className="text-xs text-foreground min-w-0">
-            {step.label}
+      {steps.map((step, i) => {
+        const isLast = i === steps.length - 1;
+        const isCompleted = step.status === 'completed';
+        const firstPendingIndex = steps.findIndex((s) => s.status === 'pending');
+        const isInProgress = step.status === 'pending' && i === firstPendingIndex;
+        if (dark) {
+          return (
+            <div key={step.key} className="flex items-start gap-2">
+              <div className="flex flex-col items-center shrink-0">
+                <span
+                  className={cn(
+                    'w-2.5 h-2.5 rounded-full border-2 flex shrink-0',
+                    isCompleted && 'bg-white border-white',
+                    step.status === 'failed' && 'bg-red-400 border-red-400',
+                    isInProgress && 'bg-amber-400 border-amber-400',
+                    step.status === 'pending' && !isInProgress && 'bg-transparent border-slate-500'
+                  )}
+                />
+                {!isLast && <span className={cn('w-0.5 h-3 mt-0.5', isCompleted ? 'bg-white' : 'bg-slate-600')} />}
+              </div>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <span className={cn('text-xs', isCompleted || isInProgress ? textCl : mutedCl)}>{step.label}</span>
+                {step.timestamp && <span className={cn('text-[11px] tabular-nums ml-1', mutedCl)}>{step.timestamp}</span>}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={step.key} className="flex items-center gap-2">
+            {step.status === 'completed' && <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />}
+            {step.status === 'failed' && <X className="h-3.5 w-3.5 text-destructive shrink-0" />}
+            {step.status === 'pending' && <Hourglass className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <span className={cn('text-xs min-w-0', textCl)}>{step.label}</span>
+            {step.timestamp && <span className={cn('text-[11px] tabular-nums shrink-0 ml-auto', mutedCl)}>{step.timestamp}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** New dark menu card wrapper: header (planet + emoji + title + time) + body + right icon */
+function ActivityMenuCard({
+  item,
+  timeStr,
+  children,
+  rightIcon,
+  progress,
+}: {
+  item: ActivityItem;
+  timeStr: string;
+  children: React.ReactNode;
+  rightIcon: React.ReactNode;
+  progress?: number;
+}) {
+  const isWarning = ['ccv_rejected', 'ccd', 'ticketing_failed', 'ancillary_failed', 'reissue_failed', 'refund_failed'].includes(item.type);
+  return (
+    <div className="flex gap-2 items-start">
+      <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-white/10 bg-slate-800/95 shadow-lg">
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/10">
+          <PlanetIcon className="w-5 h-5" />
+          <span className="text-base">{getActivityEmoji(item.type)}</span>
+          <span className={cn('flex-1 min-w-0 text-sm font-medium truncate', isWarning ? 'text-red-300' : 'text-white')}>
+            {item.title}
           </span>
-          {step.timestamp && (
-            <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 ml-auto">{step.timestamp}</span>
-          )}
+          <span className="text-[11px] text-slate-400 tabular-nums shrink-0">{timeStr}</span>
         </div>
-      ))}
+        <div className="p-3">{children}</div>
+      </div>
+      <CardRightIcon icon={rightIcon} progress={progress} />
     </div>
   );
 }
@@ -303,6 +402,7 @@ function ActivityItemLayout({
   getActionLabel,
   expanded,
   onToggleExpand,
+  variant = 'default',
 }: {
   item: ActivityItem;
   index: number;
@@ -314,11 +414,21 @@ function ActivityItemLayout({
   getActionLabel: (t: ActivityType) => string;
   expanded: boolean;
   onToggleExpand: () => void;
+  variant?: 'default' | 'darkCard';
 }) {
   const timeStr = relativeTime(index);
   const statusLabel = getStatusLabel(item.status);
   const statusStyles = getStatusStyles(item.status);
-  const linkClass = "text-xs font-medium text-primary hover:underline shrink-0";
+  const dark = variant === 'darkCard';
+  const linkClass = dark
+    ? 'text-xs font-medium text-sky-300 hover:underline shrink-0'
+    : 'text-xs font-medium text-primary hover:underline shrink-0';
+  const t1 = dark ? 'text-white' : 'text-foreground';
+  const t2 = dark ? 'text-slate-400' : 'text-muted-foreground';
+  const borderCl = dark ? 'border-white/10' : 'border-border';
+  const cardRoot = dark
+    ? 'bg-transparent border-0 rounded-none overflow-visible cursor-pointer'
+    : '';
 
   // —— PNR: Timeline block (title, subtitle, steps, status chip, time; actions as links) ——
   if (item.type === 'pnr') {
@@ -329,23 +439,25 @@ function ActivityItemLayout({
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("rounded-lg border border-border bg-card overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", dark && cardRoot, !dark && getLeftBorderClass(item.type))}
       >
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
-        <div className="p-3 space-y-2">
+        <div className={cn("space-y-2", !dark && "p-3")}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-            {item.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle}</p>}
+            <h3 className={cn("text-sm font-semibold", t1)}>{item.title}</h3>
+            {item.subtitle && <p className={cn("text-xs mt-0.5", t2)}>{item.subtitle}</p>}
           </div>
+          {!dark && (
           <div className="flex items-center gap-1.5 shrink-0">
             {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-            <span className="text-[11px] text-muted-foreground tabular-nums">{timeStr}</span>
+            <span className={cn("text-[11px] tabular-nums", t2)}>{timeStr}</span>
           </div>
+          )}
         </div>
-        {item.flowSteps && item.flowSteps.length > 0 ? <FlowTimeline steps={item.flowSteps} /> : null}
+        {item.flowSteps && item.flowSteps.length > 0 ? <FlowTimeline steps={item.flowSteps} dark={dark} /> : null}
         {isItemActionable(item) && (
-          <div className="flex gap-3 pt-1 border-t border-border/50 mt-2">
+          <div className={cn("flex gap-3 pt-1 mt-2", `border-t ${borderCl}/50`)}>
             <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(item); }} className={linkClass}>Accept</button>
             <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Details</button>
           </div>
@@ -364,21 +476,23 @@ function ActivityItemLayout({
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("rounded-lg border border-border bg-card/50 overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className={cn(!dark && "rounded-lg border border-border bg-card/50 overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", dark && cardRoot, !dark && getLeftBorderClass(item.type))}
       >
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
-        <div className="p-3 space-y-2">
+        <div className={cn("space-y-2", !dark && "p-3")}>
+        {!dark && (
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
+          <h3 className={cn("text-sm font-medium", t1)}>{item.title}</h3>
           <div className="flex items-center gap-1.5 shrink-0">
             {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-            <span className="text-[11px] text-muted-foreground">{timeStr}</span>
+            <span className={cn("text-[11px]", t2)}>{timeStr}</span>
           </div>
         </div>
-        {item.subtitle && <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">&ldquo;{item.subtitle}&rdquo;</p>}
+        )}
+        {item.subtitle && <p className={cn("text-xs italic pl-2 border-l-2", t2, dark ? "border-white/20" : "border-border")}>&ldquo;{item.subtitle}&rdquo;</p>}
         {isItemActionable(item) && (
           <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={cn(linkClass, "inline-flex items-center gap-1")}>
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Send Reply
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Send Reply
           </button>
         )}
         </div>
@@ -395,18 +509,18 @@ function ActivityItemLayout({
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className={cn("rounded-lg border border-border bg-card overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", getLeftBorderClass(item.type))}
+        className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden cursor-pointer hover:bg-secondary/30 transition-colors", dark && cardRoot, !dark && getLeftBorderClass(item.type))}
       >
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
-        <div className="flex items-center gap-3 px-3 py-2.5">
-        <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className={cn("flex items-center gap-3 py-2.5", !dark && "px-3")}>
+        <AlertTriangle className={cn("h-4 w-4 shrink-0", dark ? "text-slate-400" : "text-muted-foreground")} />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-foreground">{item.title}</span>
-          <span className="text-xs text-muted-foreground ml-2">{item.subtitle || 'Deadline approaching'}</span>
+          <span className={cn("text-sm font-medium", t1)}>{item.title}</span>
+          <span className={cn("text-xs ml-2", t2)}>{item.subtitle || 'Deadline approaching'}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-          <span className="text-[11px] text-muted-foreground">{timeStr}</span>
+          {!dark && statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
+          {!dark && <span className={cn("text-[11px]", t2)}>{timeStr}</span>}
           {isItemActionable(item) && <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Take action</button>}
         </div>
         </div>
@@ -418,32 +532,34 @@ function ActivityItemLayout({
   if (item.type === 'ccv_rejected') {
     const fraud = getPotentialFraud(item);
     return (
-      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+      <div className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden", dark && cardRoot, !dark && getLeftBorderClass(item.type))}>
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
           onClick={() => onItemClick(item)}
           onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-          className="p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+          className={cn("cursor-pointer hover:bg-secondary/30 transition-colors", !dark && "p-3")}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex gap-2 min-w-0">
-              <CreditCard className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <CreditCard className={cn("h-4 w-4 shrink-0 mt-0.5", dark ? "text-slate-400" : "text-muted-foreground")} />
               <div>
-                <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle || 'CCV declined – review required'}</p>
+                <h3 className={cn("text-sm font-semibold", t1)}>{item.title}</h3>
+                <p className={cn("text-xs mt-0.5", t2)}>{item.subtitle || 'CCV declined – review required'}</p>
               </div>
             </div>
+            {!dark && (
             <div className="flex items-center gap-1.5 shrink-0">
               {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-              <span className="text-[11px] text-muted-foreground">{timeStr}</span>
+              <span className={cn("text-[11px]", t2)}>{timeStr}</span>
             </div>
+            )}
           </div>
-          {item.flowSteps && item.flowSteps.length > 0 && <FlowTimeline steps={item.flowSteps} />}
+          {item.flowSteps && item.flowSteps.length > 0 && <FlowTimeline steps={item.flowSteps} dark={dark} />}
         </div>
         {isItemActionable(item) && (
-          <div className="px-3 py-2 border-t border-border/50">
+          <div className={cn("py-2 border-t border-border/50", !dark && "px-3", dark && "border-white/10")}>
             <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={cn(linkClass, "inline-flex items-center gap-1")}>
               <CreditCard className="h-3.5 w-3.5" /> Review CCV
             </button>
@@ -457,27 +573,27 @@ function ActivityItemLayout({
   if (item.type === 'ccd') {
     const fraud = getPotentialFraud(item);
     return (
-      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+      <div className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden", dark && cardRoot, !dark && getLeftBorderClass(item.type))}>
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
           onClick={() => onItemClick(item)}
           onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-          className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center p-3 cursor-pointer hover:bg-secondary/30 transition-colors min-w-0"
+          className={cn("grid grid-cols-[auto_1fr_auto_auto_auto] gap-2 items-center cursor-pointer hover:bg-secondary/30 transition-colors min-w-0", !dark && "p-3")}
         >
-          <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Wallet className={cn("h-4 w-4 shrink-0", dark ? "text-slate-400" : "text-muted-foreground")} />
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-foreground truncate">{item.title}</h3>
-            {item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
+            <h3 className={cn("text-sm font-semibold truncate", t1)}>{item.title}</h3>
+            {item.subtitle && <p className={cn("text-xs truncate", t2)}>{item.subtitle}</p>}
           </div>
-          <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{item.badge}</span>
-          {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border shrink-0", statusStyles)}>{statusLabel}</span>}
+          <span className={cn("text-[11px] tabular-nums shrink-0", t2)}>{item.badge}</span>
+          {!dark && statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border shrink-0", statusStyles)}>{statusLabel}</span>}
           {isItemActionable(item) && <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Review</button>}
         </div>
         {item.flowSteps && item.flowSteps.length > 0 && (
-          <div className="px-3 pb-3 pt-0">
-            <FlowTimeline steps={item.flowSteps} />
+          <div className={cn("pb-3 pt-0", !dark && "px-3")}>
+            <FlowTimeline steps={item.flowSteps} dark={dark} />
           </div>
         )}
       </div>
@@ -488,31 +604,31 @@ function ActivityItemLayout({
   if (item.type === 'ticketing_failed') {
     const fraud = getPotentialFraud(item);
     return (
-      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+      <div className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden", dark && cardRoot, !dark && getLeftBorderClass(item.type))}>
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
           onClick={onToggleExpand}
           onKeyDown={(e) => e.key === 'Enter' && onToggleExpand()}
-          className="flex items-center gap-2 p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+          className={cn("flex items-center gap-2 cursor-pointer hover:bg-secondary/30 transition-colors", !dark && "p-3")}
         >
-          <Ticket className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Ticket className={cn("h-4 w-4 shrink-0", dark ? "text-slate-400" : "text-muted-foreground")} />
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-            {item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
+            <h3 className={cn("text-sm font-semibold", t1)}>{item.title}</h3>
+            {item.subtitle && <p className={cn("text-xs truncate", t2)}>{item.subtitle}</p>}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-            <span className="text-[11px] text-muted-foreground">{timeStr}</span>
-            {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            {!dark && statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
+            {!dark && <span className={cn("text-[11px]", t2)}>{timeStr}</span>}
+            {expanded ? <ChevronUp className={cn("h-4 w-4", dark ? "text-slate-400" : "text-muted-foreground")} /> : <ChevronDown className={cn("h-4 w-4", dark ? "text-slate-400" : "text-muted-foreground")} />}
           </div>
         </div>
         {expanded && (
           <>
-            {item.flowSteps && item.flowSteps.length > 0 && <div className="px-3 pb-2"><FlowTimeline steps={item.flowSteps} /></div>}
+            {item.flowSteps && item.flowSteps.length > 0 && <div className={cn("pb-2", !dark && "px-3")}><FlowTimeline steps={item.flowSteps} dark={dark} /></div>}
             {isItemActionable(item) && (
-              <div className="px-3 py-2 border-t border-border/50">
+              <div className={cn("py-2 border-t border-border/50", !dark && "px-3", dark && "border-white/10")}>
                 <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={cn(linkClass, "inline-flex items-center gap-1")}>
                   {getIcon(item.type)} {getActionLabel(item.type)}
                 </button>
@@ -528,26 +644,28 @@ function ActivityItemLayout({
   if (item.type === 'ancillary_failed') {
     const fraud = getPotentialFraud(item);
     return (
-      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+      <div className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden", dark && cardRoot, !dark && getLeftBorderClass(item.type))}>
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
           onClick={() => onItemClick(item)}
           onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-          className="p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+          className={cn("cursor-pointer hover:bg-secondary/30 transition-colors", !dark && "p-3")}
         >
+          {!dark && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">Ancillary</span>
             {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-            <span className="text-[11px] text-muted-foreground ml-auto">{timeStr}</span>
+            <span className={cn("text-[11px] ml-auto", t2)}>{timeStr}</span>
           </div>
-          <h3 className="text-sm font-semibold text-foreground mt-1.5">{item.title}</h3>
-          {item.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle}</p>}
-          {item.flowSteps && item.flowSteps.length > 0 && <FlowTimeline steps={item.flowSteps} />}
+          )}
+          <h3 className={cn("text-sm font-semibold mt-1.5", t1)}>{item.title}</h3>
+          {item.subtitle && <p className={cn("text-xs mt-0.5", t2)}>{item.subtitle}</p>}
+          {item.flowSteps && item.flowSteps.length > 0 && <FlowTimeline steps={item.flowSteps} dark={dark} />}
         </div>
         {isItemActionable(item) && (
-          <div className="px-3 py-2 border-t border-border/50">
+          <div className={cn("py-2 border-t border-border/50", !dark && "px-3", dark && "border-white/10")}>
             <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={cn(linkClass, "inline-flex items-center gap-1")}>
               {getIcon(item.type)} {getActionLabel(item.type)}
             </button>
@@ -561,22 +679,22 @@ function ActivityItemLayout({
   if (item.type === 'reissue_failed') {
     const fraud = getPotentialFraud(item);
     return (
-      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+      <div className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden", dark && cardRoot, !dark && getLeftBorderClass(item.type))}>
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
       <div
         role="button"
         tabIndex={0}
         onClick={() => onItemClick(item)}
         onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-        className="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-secondary/30 transition-colors"
+        className={cn("flex items-center justify-between gap-3 py-2 cursor-pointer hover:bg-secondary/30 transition-colors", !dark && "px-3")}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <RefreshCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="text-sm font-medium text-foreground truncate">{item.title}</span>
-          {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border shrink-0", statusStyles)}>{statusLabel}</span>}
+          <RefreshCw className={cn("h-3.5 w-3.5 shrink-0", dark ? "text-slate-400" : "text-muted-foreground")} />
+          <span className={cn("text-sm font-medium truncate", t1)}>{item.title}</span>
+          {!dark && statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border shrink-0", statusStyles)}>{statusLabel}</span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] text-muted-foreground">{timeStr}</span>
+          {!dark && <span className={cn("text-[11px]", t2)}>{timeStr}</span>}
           {isItemActionable(item) && <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={linkClass}>Review</button>}
         </div>
       </div>
@@ -588,32 +706,34 @@ function ActivityItemLayout({
   if (item.type === 'refund_failed') {
     const fraud = getPotentialFraud(item);
     return (
-      <div className={cn("rounded-lg border border-border bg-card overflow-hidden", getLeftBorderClass(item.type))}>
+      <div className={cn(!dark && "rounded-lg border border-border bg-card overflow-hidden", dark && cardRoot, !dark && getLeftBorderClass(item.type))}>
         {fraud.show && <FraudAlertBanner reason={fraud.reason} />}
         <div
           role="button"
           tabIndex={0}
           onClick={() => onItemClick(item)}
           onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-          className="p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+          className={cn("cursor-pointer hover:bg-secondary/30 transition-colors", !dark && "p-3")}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex gap-2 min-w-0">
-              <Receipt className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <Receipt className={cn("h-4 w-4 shrink-0 mt-0.5", dark ? "text-slate-400" : "text-muted-foreground")} />
               <div>
-                <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.subtitle || 'Refund failed – review required'}</p>
+                <h3 className={cn("text-sm font-semibold", t1)}>{item.title}</h3>
+                <p className={cn("text-xs mt-0.5", t2)}>{item.subtitle || 'Refund failed – review required'}</p>
               </div>
             </div>
+            {!dark && (
             <div className="flex items-center gap-1.5 shrink-0">
               {statusLabel && <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium border", statusStyles)}>{statusLabel}</span>}
-              <span className="text-[11px] text-muted-foreground">{timeStr}</span>
+              <span className={cn("text-[11px]", t2)}>{timeStr}</span>
             </div>
+            )}
           </div>
-          {item.flowSteps && item.flowSteps.length > 0 && <FlowTimeline steps={item.flowSteps} />}
+          {item.flowSteps && item.flowSteps.length > 0 && <FlowTimeline steps={item.flowSteps} dark={dark} />}
         </div>
         {isItemActionable(item) && (
-          <div className="px-3 py-2 border-t border-border/50">
+          <div className={cn("py-2 border-t border-border/50", !dark && "px-3", dark && "border-white/10")}>
             <button type="button" onClick={(e) => { e.stopPropagation(); onItemClick(item); }} className={cn(linkClass, "inline-flex items-center gap-1")}>
               <Receipt className="h-3.5 w-3.5" /> Review refund
             </button>
@@ -630,11 +750,11 @@ function ActivityItemLayout({
       tabIndex={0}
       onClick={() => onItemClick(item)}
       onKeyDown={(e) => e.key === 'Enter' && onItemClick(item)}
-      className="rounded-lg border border-border p-3 cursor-pointer hover:bg-secondary/30"
+      className={cn(!dark && "rounded-lg border border-border p-3 cursor-pointer hover:bg-secondary/30", dark && cardRoot)}
     >
-      <h3 className="text-sm font-semibold">{item.title}</h3>
-      {item.subtitle && <p className="text-xs text-muted-foreground mt-1">{item.subtitle}</p>}
-      <span className="text-[11px] text-muted-foreground">{timeStr}</span>
+      <h3 className={cn("text-sm font-semibold", t1)}>{item.title}</h3>
+      {item.subtitle && <p className={cn("text-xs mt-1", t2)}>{item.subtitle}</p>}
+      {!dark && <span className={cn("text-[11px]", t2)}>{timeStr}</span>}
     </div>
   );
 }
@@ -771,19 +891,19 @@ export function ActivityPanel({
   }
 
   return (
-    <aside className="w-full h-full flex flex-col bg-card/90 border-r border-border min-h-0 backdrop-blur-xl shadow-soft min-w-[200px]">
+    <aside className="w-full h-full flex flex-col min-h-0 min-w-[200px] border-r border-white/10 bg-gradient-to-b from-slate-900 via-slate-900 to-violet-950 shadow-soft">
       <ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
         {/* Top: View toggle + Activity list or Spaces */}
         <ResizablePanel defaultSize={65} minSize={25} maxSize={88} className="min-h-0 flex flex-col">
           {/* View Toggle */}
-          <div className="p-2 flex gap-1 border-b border-border shrink-0">
+          <div className="p-2 flex gap-1 border-b border-white/10 shrink-0 bg-slate-900/80">
             <button
               onClick={() => setViewMode('activity')}
               className={cn(
                 "flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2",
                 viewMode === 'activity'
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white/15 text-white"
+                  : "text-slate-400 hover:text-white"
               )}
             >
               <Radio className="h-4 w-4" />
@@ -794,14 +914,14 @@ export function ActivityPanel({
               className={cn(
                 "flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2",
                 viewMode === 'spaces'
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white/15 text-white"
+                  : "text-slate-400 hover:text-white"
               )}
             >
               <FolderOpen className="h-4 w-4" />
               SPACES
               {workedCases.length > 0 && (
-                <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-violet-500 text-white text-xs flex items-center justify-center">
                   {workedCases.length}
                 </span>
               )}
@@ -811,15 +931,15 @@ export function ActivityPanel({
           {viewMode === 'activity' ? (
             <>
               {/* LIVE MOTION header */}
-              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border shrink-0">
-                <LiveMotionIcon className="h-5 w-5 text-primary shrink-0" />
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/10 shrink-0 bg-slate-900/50">
+                <LiveMotionIcon className="h-5 w-5 text-violet-400 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">LIVE MOTION</p>
-                  <p className="text-xs text-primary truncate">MONITORING ACTIVE</p>
+                  <p className="text-sm font-medium text-white truncate">LIVE MOTION</p>
+                  <p className="text-xs text-violet-300 truncate">MONITORING ACTIVE</p>
                 </div>
                 <button
                   type="button"
-                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                  className="p-1.5 rounded-md hover:bg-white/10 text-slate-400 hover:text-white"
                   aria-label="Filter"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
@@ -828,34 +948,47 @@ export function ActivityPanel({
                   type="button"
                   onClick={onToggle}
                   aria-label="Hide activity panel"
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                  className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Activity list – different layout per category; each shows multiple states (status + flow steps) */}
-              <div className="flex-1 min-h-0 overflow-y-auto py-3 px-3 space-y-3">
-                {items.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className={cn("animate-slide-up", item.isNew && "ring-1 ring-primary/30 rounded-lg")}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <ActivityItemLayout
-                      item={item}
-                      index={index}
-                      relativeTime={relativeTime}
-                      isActionable={isActionable}
-                      onItemClick={onItemClick}
-                      onAccept={onAccept}
-                      getIcon={getIcon}
-                      getActionLabel={getActionLabel}
-                      expanded={expandedActivityId === item.id}
-                      onToggleExpand={() => setExpandedActivityId((id) => (id === item.id ? null : item.id))}
-                    />
-                  </div>
-                ))}
+              {/* Activity list – new dark menu cards */}
+              <div className="flex-1 min-h-0 overflow-y-auto py-3 px-3 space-y-3 bg-gradient-to-b from-slate-900/30 to-transparent">
+                {items.map((item, index) => {
+                  const steps = item.flowSteps ?? [];
+                  const completed = steps.filter((s) => s.status === 'completed').length;
+                  const progress = steps.length > 0 ? completed / steps.length : 0;
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn("animate-slide-up", item.isNew && "ring-1 ring-violet-400/40 rounded-xl")}
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <ActivityMenuCard
+                        item={item}
+                        timeStr={relativeTime(index)}
+                        rightIcon={getIcon(item.type)}
+                        progress={progress}
+                      >
+                        <ActivityItemLayout
+                          variant="darkCard"
+                          item={item}
+                          index={index}
+                          relativeTime={relativeTime}
+                          isActionable={isActionable}
+                          onItemClick={onItemClick}
+                          onAccept={onAccept}
+                          getIcon={getIcon}
+                          getActionLabel={getActionLabel}
+                          expanded={expandedActivityId === item.id}
+                          onToggleExpand={() => setExpandedActivityId((id) => (id === item.id ? null : item.id))}
+                        />
+                      </ActivityMenuCard>
+                    </div>
+                  );
+                })}
               </div>
         </>
       ) : (
@@ -863,12 +996,12 @@ export function ActivityPanel({
       )}
         </ResizablePanel>
 
-        <ResizableHandle withHandle className="bg-border data-[panel-group-direction=vertical]:h-2 data-[panel-group-direction=vertical]:after:top-1/2" />
-        <ResizablePanel defaultSize={35} minSize={12} maxSize={75} className="min-h-0 flex flex-col overflow-hidden">
+        <ResizableHandle withHandle className="bg-white/10 data-[panel-group-direction=vertical]:h-2 data-[panel-group-direction=vertical]:after:top-1/2" />
+        <ResizablePanel defaultSize={35} minSize={12} maxSize={75} className="min-h-0 flex flex-col overflow-hidden bg-slate-900/50">
       {/* Avatar section: toggle (Avatar | Chat) + avatar + conversation below */}
-      <div className="flex-1 min-h-0 border-t border-border flex flex-col min-w-0">
+      <div className="flex-1 min-h-0 border-t border-white/10 flex flex-col min-w-0">
         {/* Toggle: Avatar mode | Chat mode */}
-        <div className="flex gap-1 p-2 border-b border-border/60">
+        <div className="flex gap-1 p-2 border-b border-white/10">
           <button
             type="button"
             onClick={() => setBottomMode('avatar')}
