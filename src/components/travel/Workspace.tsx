@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import { Sparkles, Clock, Zap } from 'lucide-react';
 import travelAssistantAvatar from '@/assets/travel-assistant-avatar.png';
 import { WorkspaceTabs } from './WorkspaceTabs';
@@ -17,6 +18,7 @@ import { MOTTicketingStatusCard } from './MOTTicketingStatusCard';
 import { MOTTicketNumbersCard } from './MOTTicketNumbersCard';
 import { MOTEmailComposeCard } from './MOTEmailComposeCard';
 import { AncillaryOptionsCard } from './AncillaryOptionsCard';
+import { cn } from '@/lib/utils';
 import { Tab, Message, SearchResult, GDSState, ActivityItem, PNRData, CommandSuggestion, GDSType, CCVInfo, FlightSearchState, FlightOption, AncillaryOption, HotelOption, HotelRoomOption, HotelSearchState, HotelBookingConfirmation, HotelPolicies, MOTPriceOption, MOTFlowState, MOTEmailCompose, type ItinerarySegment, type InvoiceSummary, type TravelerSummary, type TripActivityEvent } from '@/types/crm';
 
 interface WorkspaceProps {
@@ -279,6 +281,8 @@ export function Workspace({
   onCaseResolved,
   onShowRightPanel,
 }: WorkspaceProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [messagesPerTab, setMessagesPerTab] = useState<Record<string, Message[]>>({
     global: [],
   });
@@ -1698,18 +1702,27 @@ export function Workspace({
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0">
+    <div
+      className={cn(
+        "flex-1 flex flex-col h-full min-h-0",
+        isDark && "workspace-dark bg-gradient-to-b from-slate-900 via-slate-900 to-violet-950"
+      )}
+    >
       <WorkspaceTabs
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={onTabChange}
         onTabClose={onTabClose}
+        isDark={isDark}
       />
 
-      {/* Chat Area – theme-aware background so dark/light both look correct */}
+      {/* Chat Area – theme-aware */}
       <div
         ref={chatScrollRef}
-        className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 workspace-chat-area"
+        className={cn(
+          "flex-1 overflow-y-auto p-6 space-y-6 min-h-0",
+          isDark ? "bg-gradient-to-b from-slate-900/40 to-transparent" : "workspace-chat-area"
+        )}
       >
         {/* Default workspace welcome (global tab, no messages yet) */}
         {activeTab === 'global' && currentMessages.length === 0 && (() => {
@@ -1727,24 +1740,24 @@ export function Workspace({
             { id: 'void', label: 'Void' },
           ];
           return (
-            <div className="flex flex-col items-center justify-center min-h-[calc(100%-2rem)] py-12 px-4 workspace-welcome-bg">
-              <div className="w-20 h-20 rounded-full overflow-hidden shadow-xl border-4 border-background/50 mb-6 relative group">
-                <div className="absolute inset-0 bg-primary/10 group-hover:bg-transparent transition-colors" />
+            <div className={cn("flex flex-col items-center justify-center min-h-[calc(100%-2rem)] py-12 px-4", !isDark && "workspace-welcome-bg")}>
+              <div className={cn("w-20 h-20 rounded-full overflow-hidden shadow-xl border-4 mb-6 relative group", isDark ? "border-white/10" : "border-background/50")}>
+                <div className={cn("absolute inset-0 transition-colors", isDark ? "bg-violet-500/10 group-hover:bg-transparent" : "bg-primary/10 group-hover:bg-transparent")} />
                 <img 
                   src={travelAssistantAvatar} 
                   alt="Travel Assistant" 
                   className="w-full h-full object-cover"
                 />
               </div>
-              <h2 className="text-2xl font-bold text-foreground text-center mb-2">
+              <h2 className={cn("text-2xl font-bold text-center mb-2", isDark ? "text-white" : "text-foreground")}>
                 How can I help you today?
               </h2>
-              <p className="text-sm text-muted-foreground text-center max-w-md mb-8">
+              <p className={cn("text-sm text-center max-w-md mb-8", isDark ? "text-slate-400" : "text-muted-foreground")}>
                 Select an intake card or start a global search for cases, PNRs, or flights.
               </p>
               <div className="w-full max-w-xl space-y-6">
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                  <h3 className={cn("text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2", isDark ? "text-slate-400" : "text-muted-foreground")}>
                     <Clock className="h-3.5 w-3.5" />
                     Recent (5)
                   </h3>
@@ -1754,16 +1767,21 @@ export function Workspace({
                         key={item.id}
                         type="button"
                         onClick={() => onOpenRecentItem ? onOpenRecentItem(item) : handleSend(`Open ${item.label}`, gdsState)}
-                        className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3 px-4 py-2.5 rounded-xl glass-bubble hover:shadow-soft-lg transition-all text-left"
+                        className={cn(
+                          "w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3 px-4 py-2.5 rounded-xl hover:shadow-soft-lg transition-all text-left",
+                          isDark
+                            ? "bg-slate-800/95 border border-white/10 hover:bg-slate-700/90"
+                            : "glass-bubble"
+                        )}
                       >
-                        <span className="text-sm font-medium text-foreground">{item.label}</span>
-                        <span className="text-xs text-muted-foreground">{item.sub}</span>
+                        <span className={cn("text-sm font-medium", isDark ? "text-white" : "text-foreground")}>{item.label}</span>
+                        <span className={cn("text-xs", isDark ? "text-slate-400" : "text-muted-foreground")}>{item.sub}</span>
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                  <h3 className={cn("text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-2", isDark ? "text-slate-400" : "text-muted-foreground")}>
                     <Zap className="h-3.5 w-3.5" />
                     Quick actions
                   </h3>
@@ -1773,7 +1791,12 @@ export function Workspace({
                         key={action.id}
                         type="button"
                         onClick={() => onQuickActionClick ? onQuickActionClick(action.label) : handleSend(action.label, gdsState)}
-                        className="px-4 py-2.5 rounded-xl glass-bubble hover:shadow-soft-lg hover:text-primary transition-all text-sm font-medium text-foreground"
+                        className={cn(
+                          "px-4 py-2.5 rounded-xl hover:shadow-soft-lg transition-all text-sm font-medium",
+                          isDark
+                            ? "bg-slate-800/95 border border-white/10 hover:bg-slate-700/90 hover:text-violet-300 text-white"
+                            : "glass-bubble hover:text-primary text-foreground"
+                        )}
                       >
                         {action.label}
                       </button>
@@ -1979,10 +2002,11 @@ export function Workspace({
         )}
       </div>
 
-      <ChatInput 
-        onSend={handleSend} 
+      <ChatInput
+        onSend={handleSend}
         gdsState={gdsState}
         onGDSChange={handleGDSChange}
+        dark={isDark}
       />
     </div>
   );

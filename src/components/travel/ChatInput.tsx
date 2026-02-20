@@ -9,6 +9,8 @@ interface ChatInputProps {
   onSend: (message: string, gdsState: GDSState) => void;
   gdsState: GDSState;
   onGDSChange: (gds: GDSType | null, pcc: string | null) => void;
+  /** When true, use dark theme to match workspace/left panel */
+  dark?: boolean;
 }
 
 const gdsOptions: { id: GDSType; label: string }[] = [
@@ -17,7 +19,7 @@ const gdsOptions: { id: GDSType; label: string }[] = [
   { id: 'WSP', label: 'WSP' },
 ];
 
-export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
+export function ChatInput({ onSend, gdsState, onGDSChange, dark }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [showShortcuts, setShowShortcuts] = useState<'/' | '@' | '#' | null>(null);
   const [shortcutSelectedIndex, setShortcutSelectedIndex] = useState(0);
@@ -129,7 +131,14 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
 
   return (
     <>
-      <form id="chat-input-form" onSubmit={handleSubmit} className="p-4 border-t border-border/80 bg-background/40 backdrop-blur-sm relative">
+      <form
+        id="chat-input-form"
+        onSubmit={handleSubmit}
+        className={cn(
+          "p-4 relative backdrop-blur-sm",
+          dark ? "border-t border-white/10 bg-slate-900/60" : "border-t border-border/80 bg-background/40"
+        )}
+      >
         {/* Shortcuts Popover */}
         {showShortcuts && (
           <ShortcutsPopover
@@ -141,7 +150,12 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
           />
         )}
 
-        <div className="flex items-center gap-2 glass-input px-4 py-3">
+        <div
+          className={cn(
+            "flex items-center gap-2 px-4 py-3",
+            dark ? "bg-slate-800/95 border border-white/10 rounded-xl shadow-lg" : "glass-input"
+          )}
+        >
           {/* GDS Toggles */}
           <div className="flex items-center gap-1">
             {gdsOptions.map((gds) => {
@@ -154,12 +168,14 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
                   className={cn(
                     "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200",
                     isSelected
-                      ? gds.id === 'SBR' 
+                      ? gds.id === 'SBR'
                         ? "bg-gds-sabre/20 text-gds-sabre border border-gds-sabre/30"
                         : gds.id === 'AMD'
-                        ? "bg-gds-amadeus/20 text-gds-amadeus border border-gds-amadeus/30"
-                        : "bg-gds-worldspan/20 text-gds-worldspan border border-gds-worldspan/30"
-                      : "bg-muted/30 text-muted-foreground/50 border border-transparent opacity-50"
+                          ? "bg-gds-amadeus/20 text-gds-amadeus border border-gds-amadeus/30"
+                          : "bg-gds-worldspan/20 text-gds-worldspan border border-gds-worldspan/30"
+                      : dark
+                        ? "bg-white/10 text-slate-400 border border-white/10"
+                        : "bg-muted/30 text-muted-foreground/50 border border-transparent opacity-50"
                   )}
                 >
                   {gds.label}
@@ -169,12 +185,12 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
           </div>
 
           {gdsState.selected && gdsState.pcc && (
-            <span className="text-xs text-primary font-mono">
+            <span className={cn("text-xs font-mono", dark ? "text-violet-300" : "text-primary")}>
               PCC: {gdsState.pcc}
             </span>
           )}
 
-          <ChevronRight className="h-4 w-4 text-muted-foreground mx-1" />
+          <ChevronRight className={cn("h-4 w-4 mx-1", dark ? "text-slate-400" : "text-muted-foreground")} />
 
           {/* Input */}
           <input
@@ -190,22 +206,25 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
                   : `Enter PCC to connect to ${gdsState.selected}...`
                 : "Use AI to analyze PNR, draft a response, or check availability."
             }
-            className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
+            className={cn(
+              "flex-1 bg-transparent border-none outline-none",
+              dark ? "text-white placeholder:text-slate-500" : "text-foreground placeholder:text-muted-foreground"
+            )}
           />
 
           {/* Actions */}
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className={cn("p-2 rounded-lg transition-colors", dark ? "hover:bg-white/10 text-slate-400" : "hover:bg-muted text-muted-foreground")}
             >
-              <Paperclip className="h-4 w-4 text-muted-foreground" />
+              <Paperclip className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className={cn("p-2 rounded-lg transition-colors", dark ? "hover:bg-white/10 text-slate-400" : "hover:bg-muted text-muted-foreground")}
             >
-              <Mic className="h-4 w-4 text-muted-foreground" />
+              <Mic className="h-4 w-4" />
             </button>
             <button
               type="submit"
@@ -213,8 +232,10 @@ export function ChatInput({ onSend, gdsState, onGDSChange }: ChatInputProps) {
               className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
                 message.trim()
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "bg-muted text-muted-foreground"
+                  ? dark ? "bg-violet-500 text-white shadow-soft hover:bg-violet-600" : "bg-primary text-primary-foreground shadow-soft"
+                  : dark
+                    ? "bg-slate-600 text-slate-400"
+                    : "bg-muted text-muted-foreground"
               )}
             >
               <Send className="h-4 w-4" />
